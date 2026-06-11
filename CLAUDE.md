@@ -19,14 +19,24 @@ There is still no application source code, build tooling, package manifest, or t
 ├── .claude-plugin/
 │   └── marketplace.json            # marketplace catalog: name "next-nf", lists plugins
 └── plugins/
-    └── nf-docs/                    # org-wide documentation-standard plugin
+    ├── nf-docs/                    # org-wide documentation-standard plugin
+    │   ├── .claude-plugin/plugin.json
+    │   └── skills/
+    │       └── documenting-network-functions/
+    │           ├── SKILL.md                 # operational summary (auto-invoked)
+    │           ├── documentation-style.md   # authoritative ETSI-derived standard
+    │           └── templates/               # copy-in doc templates (config, interface,
+    │                                         #   runbook, troubleshooting, diagrams)
+    └── nf-conventions/             # org-wide architecture/design/conventions plugin
         ├── .claude-plugin/plugin.json
         └── skills/
-            └── documenting-network-functions/
-                ├── SKILL.md                 # operational summary (auto-invoked)
-                ├── documentation-style.md   # authoritative ETSI-derived standard
-                └── templates/               # copy-in doc templates (config, interface,
-                                              #   runbook, troubleshooting, diagrams)
+            └── nf-architecture/
+                ├── SKILL.md                 # summary + index + set policies
+                └── reference/               # progressive-disclosure guides, loaded on demand:
+                                             #   architecture (umbrella + sbi/api/web naming),
+                                             #   erlang-otp (OTP-29 + native records),
+                                             #   diameter, observability (OTEL),
+                                             #   interfaces-map, conventions, deployment-philosophy
 ```
 
 ## Working in this repo
@@ -35,6 +45,7 @@ There is still no application source code, build tooling, package manifest, or t
 - **Marketplace catalog:** `.claude-plugin/marketplace.json`. Each entry's `source` is a path under `plugins/` (relative-path sources resolve because this marketplace is git-based). Add a plugin by creating its directory under `plugins/` and adding a catalog entry.
 - **Plugins** carry their manifest in `.claude-plugin/plugin.json`; bundled `skills/`, `commands/`, `agents/`, `hooks/` directories sit at the plugin root, not inside `.claude-plugin/`.
 - **The `nf-docs` skill is org-wide**, not specific to this repo: it defines the operator-documentation standard for every next-nf network function (SMF/PGW, UDR/HSS, PCF/PCRF, CHF). It was generalized from the `documenting-hss` skill in the `udr` repo. Keep its terminology and examples spanning all the network functions, not narrowed to one.
+- **The `nf-conventions` skill is org-wide**: shared architecture, design rationale, and engineering conventions for all four components. Its `reference/` files state **target conventions** (OTP-29 + native records, the `<comp>_sbi`/`_api`/`_web` layout, OpenTelemetry-over-Prometheus, the Diameter discipline) alongside the current per-repo state and migration action. `udr` is the reference implementation for Diameter, observability, and native records. When editing these files, keep them org-wide and grounded in the actual repos — do not narrow to one component, and update the per-repo state when a component changes.
 
 ## Validation
 
@@ -43,6 +54,7 @@ There is no build or test step. Validate manifests after editing them:
 ```sh
 claude plugin validate .claude-plugin/marketplace.json   # catalog
 claude plugin validate plugins/nf-docs                    # plugin manifest
+claude plugin validate plugins/nf-conventions             # plugin manifest
 ```
 
 ## Installing the marketplace (for reference)

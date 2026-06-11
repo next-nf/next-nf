@@ -1,0 +1,12 @@
+{
+  "name": "nf-conventions",
+  "version": "0.1.0",
+  "description": "Org-wide architecture, design, and engineering conventions for the next-nf 3GPP core (SMF/PGW, UDR/HSS, PCF/PCRF, CHF). Shared knowledge for agents working in any component repo.",
+  "author": {
+    "name": "Nathan Foster",
+    "email": "next-nf@proton.me"
+  },
+  "homepage": "https://github.com/next-nf/next-nf",
+  "repository": "https://github.com/next-nf/next-nf",
+  "keywords": ["architecture", "conventions", "3gpp", "erlang", "otp", "design"]
+}

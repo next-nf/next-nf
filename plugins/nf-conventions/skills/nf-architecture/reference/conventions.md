@@ -1,0 +1,77 @@
+# Engineering conventions
+
+> Grounded as of 2026-06-11. General build/release/lint/clustering/ports/licensing conventions. The big topics have their own files: [`erlang-otp.md`](erlang-otp.md) (OTP-29 + native records), [`diameter.md`](diameter.md), [`observability.md`](observability.md), and the app-layout convention in [`architecture.md`](architecture.md).
+
+## 1. Build & release (confirmed)
+
+All components use **rebar3**:
+
+```sh
+rebar3 compile      # must produce zero warnings (warnings_as_errors is on)
+rebar3 release      # builds _build/default/rel/<comp>/
+rebar3 shell        # interactive dev console
+```
+
+Run a release in the foreground:
+
+```sh
+_build/default/rel/<comp>/bin/<comp> foreground
+```
+
+## 2. Lint policy (confirmed)
+
+`warnings_as_errors` is enabled org-wide (`{erl_opts, [debug_info, warnings_as_errors]}` in each top-level `rebar.config`). Code **shall** compile clean.
+
+Sanctioned overrides today (both go away with the migrations):
+- **Generated Diameter code** is exempt from `warnings_as_errors`. (After moving to `diameter_make` per [`diameter.md`](diameter.md) §6, keep the generated `src/` out of the warnings-as-errors path.)
+- **`prometheus` 6.1.2** needs `{override, prometheus, [{erl_opts,[debug_info,nowarn_deprecated_catch]}]}` on OTP-28+. Removed once Prometheus is dropped ([`observability.md`](observability.md)).
+
+Do not extend either exemption to hand-written application code.
+
+## 3. OTP version & records
+
+OTP-29 is the target; prefer native records. **See [`erlang-otp.md`](erlang-otp.md).**
+
+## 4. Diameter
+
+RFC 6733 base, `{request_errors, answer}`, generated dictionaries, `diameter_make` toolchain. **See [`diameter.md`](diameter.md).**
+
+## 5. Observability
+
+OpenTelemetry (not Prometheus); OTEL semantic naming; documented metrics; Grafana per component. **See [`observability.md`](observability.md).**
+
+## 6. Data layer
+
+Access persistent state only through the `<comp>_db` behaviour (see [`architecture.md`](architecture.md) §3). Default backend keeps a fresh checkout runnable (Mnesia in `pcf`/`chf`); external backends (MongoDB in `udr`) are opt-in by configuration.
+
+## 7. Clustering
+
+Per-subscriber consistency across nodes via session locking — `udr` uses [`syn`](https://hex.pm/packages/syn) keyed per IMSI, in a dedicated `udr_cluster` app; `smf` has `smf_cluster`. `pcf`/`chf` have no cluster app yet.
+`TODO`: state the canonical clustering approach and whether `pcf`/`chf` need per-subscriber locking.
+
+## 8. Listener ports (convention — verify per repo)
+
+`pcf` and `chf` share this scheme; treat it as the default and document the real values in each component's Configuration Reference:
+
+| Purpose | Port |
+| --- | --- |
+| Diameter | 3868 |
+| 5G SBI (HTTP/2) | 8443 |
+| OAM / provisioning REST | 8080 |
+| Web UI + metrics scrape | 8081 |
+
+> [!WARNING]
+> Not universal. `udr`'s provisioning API defaults to **8090** and its SBI to **8080**. `pcf`/`chf` currently mount `/metrics` on the web port (8081). Always state the real default in the component's docs; do not assume this table.
+
+## 9. Licensing
+
+Components are **AGPL-3.0** (`smf`, `udr`, `pcf`, `chf` ship a `LICENSE`). New code in those repos inherits it.
+`TODO`: confirm the license for shared assets in the profile/marketplace repo (it currently has no `LICENSE`).
+
+## 10. CI
+
+`udr` has GitHub Actions (`ci`, `demo-s6a`, `demo-open5gs`) and builds against the OTP-29 target. `TODO`: confirm CI for `smf`/`pcf`/`chf` and whether a shared CI template should be factored out; all CI should target OTP-29.
+
+## 11. Documentation
+
+Operator-facing docs follow the org standard — use the `documenting-network-functions` skill (`nf-docs` plugin). Author diagrams in Mermaid.
