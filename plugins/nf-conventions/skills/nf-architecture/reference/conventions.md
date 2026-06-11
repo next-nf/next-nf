@@ -18,6 +18,19 @@ Run a release in the foreground:
 _build/default/rel/<comp>/bin/<comp> foreground
 ```
 
+## 1a. Testing: Common Test, not EUnit
+
+**Rule:** write tests as **Common Test** suites (`*_SUITE.erl` under `apps/<app>/test/`). Do **not** use EUnit (`*_tests.erl`). Run with `rebar3 ct`.
+
+This is already the de-facto state — there are zero `*_tests.erl` in the org and tests are Common Test throughout (`smf` 24 suites, `udr` 30, `pcf` 7, `chf` 12). Keep it that way; do not introduce EUnit for new tests.
+
+> [!NOTE]
+> Some `<comp>_diameter/rebar.config` files list an `eunit` pre-hook — that only ensures the Diameter dictionary is generated before the `eunit` provider runs ([`diameter.md`](diameter.md) §6); it is not an EUnit test suite and does not contradict this rule.
+
+## 1b. JSON & data structures
+
+Use the OTP `json` module with binary keys; convert data structures in a single pass. **See [`data-handling.md`](data-handling.md).**
+
 ## 2. Lint policy (confirmed)
 
 `warnings_as_errors` is enabled org-wide (`{erl_opts, [debug_info, warnings_as_errors]}` in each top-level `rebar.config`). Code **shall** compile clean.

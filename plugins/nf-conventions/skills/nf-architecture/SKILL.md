@@ -16,6 +16,7 @@ Set policies (authoritative — see the reference files for detail):
 - **Uniform app layout** for SBI / OAM / web (`<comp>_sbi` / `<comp>_api` / `<comp>_web`).
 - **OpenTelemetry over Prometheus** for all metrics; Grafana dashboards per component.
 - **Diameter** follows the RFC 6733 + `request_errors` + generated-dictionary discipline (`udr` is the reference).
+- **Common Test only** (no EUnit); **OTP `json` module** with binary keys (not atoms); single-pass data conversion.
 
 ## The components
 
@@ -36,6 +37,7 @@ Read the file that matches what you are doing — do not load all of them at onc
 | **OTP-29 target + native records** (a new OTP-29 concept — read before writing records) and the Diameter build toolchain | [`reference/erlang-otp.md`](reference/erlang-otp.md) |
 | The **in-depth Diameter guide** (RFC 6733 base, `request_errors`, ENUMs, generated dictionaries) | [`reference/diameter.md`](reference/diameter.md) |
 | The **observability policy** (OpenTelemetry, no Prometheus, OTEL semantic naming, Grafana) | [`reference/observability.md`](reference/observability.md) |
+| **JSON & data handling** (OTP `json` module, binary keys not atoms, single-pass conversion) | [`reference/data-handling.md`](reference/data-handling.md) |
 | Which NF speaks which 3GPP interface, and how they interconnect | [`reference/interfaces-map.md`](reference/interfaces-map.md) |
 | Build/release commands, lint policy, clustering, ports, licensing | [`reference/conventions.md`](reference/conventions.md) |
 | Why the core runs on bare metal rather than Kubernetes | [`reference/deployment-philosophy.md`](reference/deployment-philosophy.md) |
