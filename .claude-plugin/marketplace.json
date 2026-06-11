@@ -1,0 +1,21 @@
+{
+  "name": "next-nf",
+  "owner": {
+    "name": "Nathan Foster",
+    "email": "next-nf@proton.me"
+  },
+  "description": "AI skills for the next-nf open-source 3GPP mobile core (Erlang/OTP) — shared conventions and per-component knowledge for working on the SMF/PGW, UDR/HSS, PCF/PCRF, and CHF.",
+  "metadata": {
+    "pluginRoot": "./plugins"
+  },
+  "plugins": [
+    {
+      "name": "nf-docs",
+      "source": "./plugins/nf-docs",
+      "description": "Org-wide operator-documentation standard for next-nf network functions — an ETSI-derived house style with copy-in templates for configuration, interface, runbook, troubleshooting, and diagram docs.",
+      "version": "0.1.0",
+      "category": "documentation",
+      "keywords": ["documentation", "style-guide", "3gpp", "erlang", "otp"]
+    }
+  ]
+}
