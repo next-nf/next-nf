@@ -4,26 +4,42 @@
 
 Diameter in next-nf uses **OTP's own `diameter` application** (not a third-party stack). Dictionaries are written as `.dia` files and compiled to Erlang codec modules. The rules below are about wiring that stack correctly so decode errors, result codes, and AVP/ENUM names behave.
 
-## 1. Include the RFC 6733 base dictionary
+## 1. RFC 6733 base dictionary — two separate concerns
 
-**Rule:** every service must use the **RFC 6733** base dictionary, in two places:
+There are two different "use RFC 6733" levers, and they are easy to confuse. They do unrelated things; you generally want both, for different reasons.
 
-1. In each `.dia` file, inherit the base so AVP types resolve:
-   ```
-   @inherits diameter_gen_base_rfc6733
-   ```
-2. In the service config, register RFC 6733 explicitly as the **common** application (App-Id 0):
-   ```erlang
-   {application, [{alias, common},
-                  {dictionary, diameter_gen_base_rfc6733},
-                  {module, <comp>_diameter_<iface>}]},
-   ```
+### 1a. `@inherits` — compile-time only
 
-**Why it is mandatory:** OTP's default base is **RFC 3588**, which **forbids 5xxx (permanent failure) Result-Codes in answer messages**. RFC 6733 added them. If you leave the default, the OTP diameter stack rejects any 5xxx answer your code produces as an `invalid_return` — so error answers silently fail to go out. `udr` registers `diameter_gen_base_rfc6733` as `common` for exactly this reason (`apps/udr_diameter/src/udr_diameter_srv.erl`).
+```
+@inherits diameter_gen_base_rfc6733
+```
 
-| Repo | `@inherits diameter_gen_base_rfc6733` | Registered as `common` App-Id 0 |
+In a `.dia`, `@inherits` is a **dictionary-compilation** directive: it makes the RFC 6733 base AVP definitions available to *that generated codec module*, so your dictionary can reference base AVPs (`Result-Code`, `Origin-Host`, …). It governs **only the generated dictionary**. It has **no effect on how the running `diameter` application behaves** — it does not, by itself, change error handling or which result codes can be answered.
+
+### 1b. Common application — the runtime lever
+
+Register `diameter_gen_base_rfc6733` as the **common application (Application Id 0)** in the service config:
+
+```erlang
+{application, [{alias, common},
+               {dictionary, diameter_gen_base_rfc6733},
+               {module, <comp>_diameter_<iface>}]},
+```
+
+The common application is what the stack uses for base-protocol messages (CER/CEA, DWR/DWA, DPR/DPA) and for **answers the stack originates itself**. Combined with `{request_errors, answer}` (§2), this is the lever that lets the stack emit **5xxx**.
+
+**Why RFC 6733 specifically.** Per the OTP `diameter` docs, with `{request_errors, answer}` *"even 5xxx errors are answered without a callback unless the connection ... has configured the RFC 3588 common dictionary"* — and *"`answer` has the same semantics as `answer_3xxx` when the transport ... has been configured with `diameter_gen_base_rfc3588` as its common dictionary"*, because *"RFC 3588 allows only 3xxx result codes in an answer-message."* So with the RFC 3588 default common dictionary, malformed requests are silently only ever answered with 3xxx; the RFC 6733 common dictionary is required for the stack to answer with 5xxx.
+
+**The stack originates these errors — your callbacks do not.** When a request fails to decode, the **diameter application itself** builds and sends the 3xxx/5xxx protocol-error answer using the common-application dictionary. Per-application callback modules (Ro/Rf, S6a, Gx, …) neither construct nor handle these — they only ever see cleanly-decoded requests (§2).
+
+> [!NOTE]
+> This corrects an earlier version of this guide, which claimed the application returns a 5xxx answer that the stack rejects as `invalid_return`. That is not the mechanism: the **stack** generates the 5xxx, driven by the common application + `{request_errors, answer}`. The Ro/Rf (and other) callbacks do not produce protocol-error answers.
+
+**Client behavior is unaffected.** The common application governs base-protocol messages and the encoding of stack-originated answers to **inbound** requests. It does not change how this node behaves as a **client** issuing requests (e.g. CCR on Ro/Rf/Gx). Choosing the RFC 6733 common dictionary is a server-side error-answering concern, not a client one.
+
+| Repo | `@inherits` (compile) | RFC 6733 as `common` App-Id 0 (runtime) |
 | --- | --- | --- |
-| `udr` | ✅ | ✅ (reference) |
+| `udr` | ✅ | ✅ (reference — `apps/udr_diameter/src/udr_diameter_srv.erl`) |
 | `smf` | ✅ | ⚠️ verify the service registers it as common |
 | `pcf` | ✅ (also `-include_lib` the rfc6733 `.hrl`) | ⚠️ verify |
 | `chf` | ✅ | ⚠️ verify |
@@ -39,7 +55,13 @@ Diameter in next-nf uses **OTP's own `diameter` application** (not a third-party
                {request_errors, answer}]}
 ```
 
-**Why:** with `request_errors = answer`, the OTP stack handles decode failures itself — it generates the proper error answer (e.g. 5001 `DIAMETER_AVP_UNSUPPORTED`) automatically, and your `handle_request/3` only ever sees **cleanly decoded** requests. Without it (the default), malformed requests reach your callback half-decoded and error handling becomes your problem to reimplement — a leading source of interop bugs.
+**Why.** `request_errors` chooses who answers a request that fails to decode. There are three values:
+
+- `callback` — the half-decoded request is handed to your `handle_request/3`; you reimplement protocol error handling yourself. Avoid.
+- `answer_3xxx` (the OTP default) — the **stack** answers automatically, but only with **3xxx** codes.
+- `answer` — the **stack** answers automatically and may also use **5xxx** codes (e.g. 5001 `DIAMETER_AVP_UNSUPPORTED`).
+
+Set `answer` so the stack emits the correct permanent-failure codes for malformed requests without a callback, and your callbacks only ever see cleanly-decoded requests. **It works together with §1b:** `answer` only yields 5xxx when the common dictionary is RFC 6733 — with the RFC 3588 default it silently degrades to `answer_3xxx`. So §1b and §2 are jointly required to get stack-generated 5xxx.
 
 | Repo | `{request_errors, answer}` | Action |
 | --- | --- | --- |
@@ -49,7 +71,7 @@ Diameter in next-nf uses **OTP's own `diameter` application** (not a third-party
 | `chf` | ❌ not set | add it to the Gy/Ro and Rf apps |
 
 > [!NOTE]
-> `answer_errors` and `request_errors` are different knobs. `request_errors` governs **inbound request** decode failures (what this rule is about). Keep `request_errors = answer`.
+> `answer_errors` and `request_errors` are different knobs. `request_errors` governs **inbound request** decode failures (what this rule is about). `answer_errors` governs how *your client* reacts to a malformed **answer** it receives — independent of the 5xxx server-side concern above.
 
 ## 3. Use the generated dictionary — do not hand-redefine AVP/ENUM names
 
