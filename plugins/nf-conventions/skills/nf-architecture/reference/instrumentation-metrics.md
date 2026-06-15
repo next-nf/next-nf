@@ -67,6 +67,39 @@ These have no dedicated docs in their repo; their metric names, units, and attri
 
 (`opentelemetry_process_propagator` carries OTEL **context** across process boundaries — it emits no metrics.)
 
-## 4. These count toward the per-component contract
+## 4. Recording your own metrics — the experimental API shape
+
+Hand-defined instruments use the **experimental** metrics API (`opentelemetry_api_experimental` / `opentelemetry_experimental`). The fork's API differs from the hex-era one — two things bit `udr_otel`:
+
+- **Record by `(meter, name)`, not by an instrument handle.** The hex-era API where `create_counter/…` returned a handle you later passed to `add/2` is **gone**. You create the instrument once, then record against the **meter + the instrument's name**:
+
+  ```erlang
+  %% create once at startup
+  otel_meter:create_counter(Meter, 's6a.requests', #{unit => '{request}', description => "..."}),
+  %% record on the hot path — by name, against the meter
+  otel_counter:add(Meter, 's6a.requests', 1, #{<<"s6a.command">> => <<"AIR">>}).
+  ```
+
+- **Resolve the meter via `opentelemetry:get_application_scope(?MODULE)`, not a bare module atom.** Passing a bare module atom to `otel_meter:get_meter/1` **dialyzer-fails** the fork's `get_meter/1` spec. Use:
+
+  ```erlang
+  Meter = opentelemetry_experimental:get_meter(opentelemetry:get_application_scope(?MODULE)),
+  ```
+
+  `get_application_scope/1` returns the proper instrumentation-scope term the spec expects (name + version derived from the owning application).
+
+## 5. Serving `/metrics` from the OTEL Prometheus exporter
+
+[`observability.md`](observability.md) §1/§5 say to expose `/metrics` "through the OTEL Prometheus exporter" but leave the *how* unspecified — and the path has landmines. Concretely:
+
+- **The exporter lives inside `opentelemetry_experimental`** (`otel_metric_reader_prometheus` plus its serializer). You wire it as a **second metric reader** alongside the OTLP reader — the Prometheus reader holds the latest snapshot, which you serialize on each scrape.
+- **Set `add_total_suffix => true` on the reader.** This makes the in-process exporter add the `_total` counter suffix the same way Alloy's OTLP→Prometheus converter does by default, so the **same dashboard works against both backends** (see [`observability.md`](observability.md) §5). Keep `add_total_suffix` / `add_metric_suffixes` aligned on both sides.
+- **Do not use the standalone inets path (`otel_metric_reader_prometheus_httpd`) — it is broken in the fork.** Its `do/1` does not unwrap the `ConfigDb` value and crashes with `{badmap, …}`. Don't waste time on it.
+- **The working HTTP surface is a cowboy handler that ships only as a `samples/` file — you must vendor it.** Copy the sample cowboy Prometheus handler into the component (e.g. `<comp>_web`), point a route at it, and have it call the Prometheus reader's serializer. It is not packaged as a usable module, so a fresh repo has to bring it in itself.
+
+> [!NOTE]
+> Net effect: a component that wants `/metrics` adds the Prometheus reader (with `add_total_suffix => true`) as a second reader **and** vendors the sample cowboy handler. The OTLP reader stays for the OTLP→backend pipeline; the two readers are independent views of the same instruments.
+
+## 6. These count toward the per-component contract
 
 Library-provided metrics are part of each component's metrics surface, so they belong in its `METRICS.md` and Grafana dashboard ([`observability.md`](observability.md) §4–5) exactly like hand-defined instruments. Document the cowboy/diameter/beam metrics you **actually enable** — do not list instruments you never `init()`, and don't promise `http.route`/`error.type` dimensions you haven't added.
