@@ -6,9 +6,8 @@
 
 1. **Use OpenTelemetry**, not Prometheus, for metrics and traces. Instrument with the OTEL API directly (counters/histograms via `otel_meter`, spans via `?with_span`), the way `udr` does.
 2. **Do not use the BEAM `telemetry` library** as a metrics indirection layer. Instrument against the OTEL API directly.
-   - **Exception:** the special OTEL handler `udr` already uses — `opentelemetry_cowboy_h` (a Cowboy stream handler that turns HTTP requests into OTEL spans) — is sanctioned and should be reused for HTTP instrumentation. It is not the `telemetry` library; it is the approved way to get HTTP spans.
-   - `CONFIRM`: this reads the maintainer's "do not use telemetry (not the special handler already used by the UDR)" as "no `telemetry` library, but keep the special OTEL Cowboy handler udr uses." Adjust this section if the intended exception is different.
-3. **Convert existing Prometheus handlers to OTEL** metrics, and expose them through the **OTEL Prometheus exporter** where a `/metrics` scrape endpoint is still wanted. i.e. metrics are *defined* as OTEL instruments; the Prometheus endpoint, if kept, is just an OTEL exporter view — not hand-rolled `prometheus_*` collectors.
+   - **Exception:** the OTEL Cowboy stream handler `udr` already uses — `opentelemetry_cowboy_h` (turns HTTP requests into OTEL spans), plus its metrics counterpart `opentelemetry_cowboy_experimental_h` — is sanctioned and should be reused for HTTP instrumentation. These are not the `telemetry` library; they are the approved way to get HTTP spans and server metrics. Use the **next-nf forks** of both (§2).
+3. **Convert existing Prometheus handlers to OTEL** metrics, and expose them through the **OTEL Prometheus exporter** (provided by the next-nf `opentelemetry-erlang` fork, §2) where a `/metrics` scrape endpoint is still wanted. i.e. metrics are *defined* as OTEL instruments; the Prometheus endpoint, if kept, is just an OTEL exporter view — not hand-rolled `prometheus_*` collectors.
 4. **Follow OTEL semantic conventions** for naming (§3).
 5. **Document every metric** (§4).
 6. **Maintain a Grafana dashboard per component** (§5).
@@ -22,18 +21,40 @@
 | `pcf` | ❌ Prometheus deps + `/metrics` via `prometheus_cowboy_handler` on `pcf_web` (:8081), **but no custom metrics defined**. | Light — swap the exporter for OTEL + OTEL Prometheus exporter; add OTEL instruments for the policy path (Gx CCR/CCA, session counts). |
 | `chf` | ❌ Prometheus deps + `/metrics` on `chf_web` (:8081), **no custom metrics**; a separate JSON dashboard endpoint reads VM stats. | Light — same as pcf; add OTEL instruments for the charging path (Gy/Ro, Rf, balance ops). |
 
-Reference dep set (from `udr/rebar.config`):
+### Dependency set — use the next-nf forks
+
+All components **shall** depend on the **next-nf forks** of the OpenTelemetry Erlang libraries (maintained pending upstream), **not** the hex releases or the upstream/travelping git sources. The core libraries come from the `feature/prometheus-exporter-for-upstream` branch of `next-nf/opentelemetry-erlang`, which **carries the OTEL Prometheus exporter** — the next-nf addition being prepared for upstream. That is how the Prometheus `/metrics` surface is served from OTEL instruments; there is no separate Prometheus-exporter package to add.
 
 ```erlang
-{opentelemetry_api,              "1.5.0"},
-{opentelemetry,                  "1.7.0"},
-{opentelemetry_exporter,         "1.10.0"},
-{opentelemetry_api_experimental, "0.5.1"},   %% metrics API
-{opentelemetry_experimental,     "0.5.1"},   %% metrics SDK
-{opentelemetry_cowboy_h, {git_subdir, "https://github.com/travelping/opentelemetry_cowboy_h.git", {ref, "..."}, "apps/opentelemetry_cowboy_h"}}
+%% rebar.config — OpenTelemetry core (next-nf fork; this branch carries the Prometheus exporter)
+{opentelemetry,                  {git_subdir, "https://github.com/next-nf/opentelemetry-erlang.git", {branch, "feature/prometheus-exporter-for-upstream"}, "apps/opentelemetry"}},
+{opentelemetry_api,              {git_subdir, "https://github.com/next-nf/opentelemetry-erlang.git", {branch, "feature/prometheus-exporter-for-upstream"}, "apps/opentelemetry_api"}},
+{opentelemetry_experimental,     {git_subdir, "https://github.com/next-nf/opentelemetry-erlang.git", {branch, "feature/prometheus-exporter-for-upstream"}, "apps/opentelemetry_experimental"}},      %% metrics SDK
+{opentelemetry_api_experimental, {git_subdir, "https://github.com/next-nf/opentelemetry-erlang.git", {branch, "feature/prometheus-exporter-for-upstream"}, "apps/opentelemetry_api_experimental"}},  %% metrics API
+{opentelemetry_exporter,         {git_subdir, "https://github.com/next-nf/opentelemetry-erlang.git", {branch, "feature/prometheus-exporter-for-upstream"}, "apps/opentelemetry_exporter"}},
+
+%% HTTP instrumentation (next-nf fork) — spans + experimental HTTP server metrics
+{opentelemetry_cowboy_h,              {git_subdir, "https://github.com/next-nf/opentelemetry_cowboy_h.git", {branch, "main"}, "apps/opentelemetry_cowboy_h"}},
+{opentelemetry_cowboy_experimental_h, {git_subdir, "https://github.com/next-nf/opentelemetry_cowboy_h.git", {branch, "main"}, "apps/opentelemetry_cowboy_experimental_h"}},
+
+%% BEAM/VM, Diameter + process instrumentation (next-nf contrib fork)
+{opentelemetry_beam,               {git_subdir, "https://github.com/next-nf/opentelemetry-erlang-contrib.git", {branch, "main"}, "instrumentation/opentelemetry_beam"}},
+{opentelemetry_diameter,           {git_subdir, "https://github.com/next-nf/opentelemetry-erlang-contrib.git", {branch, "main"}, "instrumentation/opentelemetry_diameter"}},
+{opentelemetry_process,            {git_subdir, "https://github.com/next-nf/opentelemetry-erlang-contrib.git", {branch, "main"}, "instrumentation/opentelemetry_process"}},
+{opentelemetry_process_propagator, {git_subdir, "https://github.com/next-nf/opentelemetry-erlang-contrib.git", {branch, "main"}, "propagators/opentelemetry_process_propagator"}}
 ```
 
-Add the OTEL **Prometheus exporter** dep where a `/metrics` scrape surface must remain during/after migration.
+What the libraries beyond the core SDK give you:
+- `opentelemetry_cowboy_h` — HTTP requests → OTEL **spans** (the handler `udr` already uses); `opentelemetry_cowboy_experimental_h` adds HTTP **server metrics**.
+- `opentelemetry_beam` — BEAM/VM runtime metrics (schedulers, memory, run-queue, GC).
+- `opentelemetry_diameter` — OTEL spans/metrics for the OTP `diameter` stack (requests/answers per interface — S6a, Gx, Gy, Rf). This is the Diameter-side counterpart to the Cowboy handler's HTTP/SBI instrumentation; pair it with the Diameter discipline in [`diameter.md`](diameter.md).
+- `opentelemetry_process` — per-process metrics; `opentelemetry_process_propagator` carries OTEL context across process boundaries (spawned workers, pool processes) so spans stay correlated.
+
+> [!IMPORTANT]
+> **What metrics each library emits — names, units, attributes, setup, and gotchas — is captured in [`instrumentation-metrics.md`](instrumentation-metrics.md).** The cowboy HTTP metrics are spelled out there (they are effectively undocumented upstream, and the cowboy metrics are **opt-in** — spans are automatic, metrics need `init()` + a `metrics_cb`); the `opentelemetry_diameter` and BEAM/process metrics are linked to their own docs. Read it before instrumenting or building a dashboard.
+
+> [!NOTE]
+> These forks **supersede** the earlier reference dep set (hex `opentelemetry*` plus the `travelping/opentelemetry_cowboy_h` git source). Pin via `{branch, ...}` as above; move to a tag / `{ref, ...}` once the Prometheus-exporter work lands upstream and the forks can be retired.
 
 > [!NOTE]
 > Dropping Prometheus also removes the `{override, prometheus, [...nowarn_deprecated_catch]}` hack that `pcf`/`chf`/`smf` need today (prometheus 6.1.2 trips `warnings_as_errors` on OTP-28+).
@@ -48,7 +69,7 @@ Add the OTEL **Prometheus exporter** dep where a `/metrics` scrape surface must 
 
 ## 4. Document every metric
 
-Each component `shall` carry a `METRICS.md` (or a section in its docs) listing, per instrument: name, type (counter/histogram/observable gauge), unit, attributes/dimensions, what it measures, and since-version. Author it with the `documenting-network-functions` skill (`nf-docs` plugin) — metrics are part of the operator contract.
+Each component `shall` carry a `METRICS.md` (or a section in its docs) listing, per instrument: name, type (counter/histogram/observable gauge), unit, attributes/dimensions, what it measures, and since-version. **This includes the metrics that the instrumentation libraries emit, not just hand-defined ones** — see [`instrumentation-metrics.md`](instrumentation-metrics.md). Author it with the `documenting-network-functions` skill (`nf-docs` plugin) — metrics are part of the operator contract.
 
 ## 5. Grafana dashboards
 
@@ -61,7 +82,10 @@ Each component `shall` carry a `METRICS.md` (or a section in its docs) listing, 
 
 - [ ] Metrics defined as OTEL instruments (no `prometheus_*` collectors).
 - [ ] HTTP spans via `opentelemetry_cowboy_h`; no BEAM `telemetry` library.
+- [ ] HTTP **metrics** enabled (`opentelemetry_cowboy_experimental_h:init()` + `metrics_cb`) — they are opt-in; see [`instrumentation-metrics.md`](instrumentation-metrics.md).
+- [ ] Library-emitted metrics (cowboy / diameter / beam / process) documented in `METRICS.md`, per [`instrumentation-metrics.md`](instrumentation-metrics.md).
 - [ ] Names/units/attributes follow OTEL semantic conventions (§3).
-- [ ] OTLP exporter wired; OTEL Prometheus exporter added if `/metrics` is kept.
+- [ ] Deps point at the **next-nf OTEL forks** (§2), not hex/travelping/upstream.
+- [ ] OTLP exporter wired; OTEL Prometheus exporter (from the next-nf fork, §2) enabled if `/metrics` is kept.
 - [ ] `METRICS.md` updated.
 - [ ] Grafana dashboard added/updated and committed.
