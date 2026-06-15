@@ -71,13 +71,15 @@ These have no dedicated docs in their repo; their metric names, units, and attri
 
 Hand-defined instruments use the **experimental** metrics API (`opentelemetry_api_experimental` / `opentelemetry_experimental`). The fork's API differs from the hex-era one — two things bit `udr_otel`:
 
-- **Record by `(meter, name)`, not by an instrument handle.** The hex-era API where `create_counter/…` returned a handle you later passed to `add/2` is **gone**. You create the instrument once, then record against the **meter + the instrument's name**:
+- **Record by `(meter, name)`, not by an instrument handle.** The hex-era API where `create_counter/…` returned a handle you later passed to `add/2` is **gone**. You create the instrument once, then record against the **meter + the instrument's name**, passing the current OTEL context as the first argument. The recording calls are `otel_counter:add/5` and `otel_histogram:record/5`, both `(Ctx, Meter, Name, Number, Attributes)` — **there is no 4-arg variant**, so a `add(Meter, Name, Number, Attrs)` call fails with an undefined-function error. Use **atom** attribute keys (as the cowboy/diameter instrumentation libraries do — not the binary keys used for JSON data):
 
   ```erlang
   %% create once at startup
   otel_meter:create_counter(Meter, 's6a.requests', #{unit => '{request}', description => "..."}),
-  %% record on the hot path — by name, against the meter
-  otel_counter:add(Meter, 's6a.requests', 1, #{<<"s6a.command">> => <<"AIR">>}).
+  %% record on the hot path — by name, against the meter, with the current OTEL context
+  Ctx = otel_ctx:get_current(),
+  otel_counter:add(Ctx, Meter, 's6a.requests', 1, #{'s6a.command' => <<"AIR">>}).
+  %% histograms mirror it: otel_histogram:record(Ctx, Meter, Name, Number, Attributes)
   ```
 
 - **Resolve the meter via `opentelemetry:get_application_scope(?MODULE)`, not a bare module atom.** Passing a bare module atom to `otel_meter:get_meter/1` **dialyzer-fails** the fork's `get_meter/1` spec. Use:
@@ -94,11 +96,13 @@ Hand-defined instruments use the **experimental** metrics API (`opentelemetry_ap
 
 - **The exporter lives inside `opentelemetry_experimental`** (`otel_metric_reader_prometheus` plus its serializer). You wire it as a **second metric reader** alongside the OTLP reader — the Prometheus reader holds the latest snapshot, which you serialize on each scrape.
 - **Set `add_total_suffix => true` on the reader.** This makes the in-process exporter add the `_total` counter suffix the same way Alloy's OTLP→Prometheus converter does by default, so the **same dashboard works against both backends** (see [`observability.md`](observability.md) §5). Keep `add_total_suffix` / `add_metric_suffixes` aligned on both sides.
-- **Do not use the standalone inets path (`otel_metric_reader_prometheus_httpd`) — it is broken in the fork.** Its `do/1` does not unwrap the `ConfigDb` value and crashes with `{badmap, …}`. Don't waste time on it.
-- **The working HTTP surface is a cowboy handler that ships only as a `samples/` file — you must vendor it.** Copy the sample cowboy Prometheus handler into the component (e.g. `<comp>_web`), point a route at it, and have it call the Prometheus reader's serializer. It is not packaged as a usable module, so a fresh repo has to bring it in itself.
+- **Do not use the standalone inets path (`otel_metric_reader_prometheus_httpd`) — it is broken in the fork.** Its `do/1` reads `otel_config` from the `ConfigDb` without the list-unwrap its sibling lookups use (inets stores custom config list-wrapped), so it passes `[Config]` instead of `Config` into the serializer and every `GET /metrics` 500s with `{badmap, …}` in `maps:merge/2`. Don't waste time on it. *(Known fork bug — a one-line `[Config] = …` unwrap fixes it; see the §5 note below.)*
+- **The working HTTP surface is a cowboy handler that ships only as a `samples/` file — you must vendor it.** Copy the sample cowboy Prometheus handler (`otel_cowboy_prometheus_h`, a standard `cowboy_rest` module taking `#{server_name => <reader_name>}` in its route opts) into the component (e.g. `<comp>_web`), point a route at it, and have it call the Prometheus reader's serializer. It is not packaged as a compiled module in any shipped app, so a fresh repo has to bring it in itself. *(Known fork packaging gap — to be promoted to a real module upstream.)*
 
 > [!NOTE]
 > Net effect: a component that wants `/metrics` adds the Prometheus reader (with `add_total_suffix => true`) as a second reader **and** vendors the sample cowboy handler. The OTLP reader stays for the OTLP→backend pipeline; the two readers are independent views of the same instruments.
+>
+> Both the broken inets path and the samples-only cowboy handler are **fork bugs pending an upstream fix**. Once they land, this workaround simplifies — the cowboy handler can be depended on directly instead of vendored, and the inets path becomes usable. Re-verify against the pinned branch and trim this section when that happens.
 
 ## 6. These count toward the per-component contract
 
