@@ -1,6 +1,5 @@
 {
   "name": "nf-docs",
-  "version": "0.1.0",
   "description": "Org-wide operator-documentation standard for next-nf network functions (SMF/PGW, UDR/HSS, PCF/PCRF, CHF) — an ETSI-derived house style with copy-in templates.",
   "author": {
     "name": "Nathan Foster",

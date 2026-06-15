@@ -13,7 +13,6 @@
       "name": "nf-docs",
       "source": "./plugins/nf-docs",
       "description": "Org-wide operator-documentation standard for next-nf network functions — an ETSI-derived house style with copy-in templates for configuration, interface, runbook, troubleshooting, and diagram docs.",
-      "version": "0.1.0",
       "category": "documentation",
       "keywords": ["documentation", "style-guide", "3gpp", "erlang", "otp"]
     },
@@ -21,7 +20,6 @@
       "name": "nf-conventions",
       "source": "./plugins/nf-conventions",
       "description": "Org-wide architecture, design rationale, and engineering conventions for the next-nf 3GPP core — shared knowledge for agents working in any component repo (smf, udr, pcf, chf).",
-      "version": "0.1.0",
       "category": "knowledge",
       "keywords": ["architecture", "conventions", "design", "3gpp", "erlang", "otp"]
     }
