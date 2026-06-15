@@ -30,7 +30,7 @@ Common gaps across all four: **no schema migration/versioning**, three incompati
 | **P2** | **Documents, not records.** Stored unit = binary-keyed map in a named collection; backends store it in a generic envelope. Classic/native records only for *transient in-module* state. |
 | **P3** | **One aggregate = one document.** All atomically-co-mutated state lives in one document; cross-aggregate flows use explicit saga/compensation. |
 | **P4** | **Coordination via `syn`, correctness via CAS.** Per-key `syn` lock serializes writers cluster-wide; the `version` field guards against lost updates regardless. |
-| **P5** | **Two backends, three tiers.** `<comp>_db_mnesia` (ram = dev/CI/cache; disc = light prod) + `<comp>_db_mongo` (serious geo-redundant prod). Config-selected, `persistent_term`-cached. |
+| **P5** | **Two backends, four tiers.** `<comp>_db_mnesia` (ram = dev/CI/cache; disc = light prod) + `<comp>_db_mongo` (serious geo-redundant prod). Config-selected, `persistent_term`-cached. |
 | **P6** | **Backend-native secondary indexes.** Declared per collection, maintained by the backend — no separate index documents, so single-doc CAS stays sufficient. |
 | **P7** | **One API for everything, with a documented dirty-read fast path.** Even SMF's hot per-node indices use the API; reads may be lock-free to avoid transaction cost. |
 | **P8** | **Backend-agnostic conformance.** One shared conformance suite is the contract's executable spec; every backend must pass it (Mnesia ram/disc + Mongo). |
