@@ -10,7 +10,7 @@ Nine principles govern every NF's data layer:
 - **P2 — Documents, not records.** The stored unit is a binary-keyed map in a named collection. Classic or native records are for *transient in-module* state only — never the persisted form. See [`erlang-otp.md`](erlang-otp.md) §2.4 on the Mnesia/native-record constraint.
 - **P3 — One aggregate = one document.** All state that must change atomically lives in one document. Cross-aggregate flows use explicit saga/compensation — never multi-key transactions.
 - **P4 — Coordination via `syn`, correctness via CAS.** A per-key `syn` lock serializes writers cluster-wide; the `version` field guards against lost updates regardless. Both layers are required.
-- **P5 — Two backends, three tiers.** `<comp>_db_mnesia` (ram = dev/CI/cache; disc = light prod) and `<comp>_db_mongo` (geo-redundant prod). Selected by config, cached in `persistent_term`.
+- **P5 — Two backends, four tiers.** `<comp>_db_mnesia` (ram = dev/CI/cache; disc = light prod) and `<comp>_db_mongo` (geo-redundant prod). Selected by config, cached in `persistent_term`.
 - **P6 — Backend-native secondary indexes.** Declared per collection at `ensure_collection`, maintained by the backend. No separate index documents; single-doc CAS remains sufficient.
 - **P7 — One API for everything, with a documented dirty-read fast path.** Even SMF's hot per-node registries use the API. Reads may be lock-free to avoid transaction cost; the call site shall document the concern.
 - **P8 — Backend-agnostic conformance.** One shared conformance suite is the contract's executable spec. Every backend (Mnesia ram/disc + Mongo) shall pass every scenario.
@@ -57,7 +57,7 @@ The `<comp>_db` facade module is written once, backend-agnostic. It resolves the
 
 > [!IMPORTANT]
 > **Contract semantics — read before writing callers:**
-> - **Atomicity is single-document only.** `cas_put` and `update` are atomic on one document. No multi-key or multi-collection atomic operation exists in the contract; cross-aggregate flows use explicit saga (§6.3).
+> - **Atomicity is single-document only.** `cas_put` and `update/3` are atomic on one document. No multi-key or multi-collection atomic operation exists in the contract; cross-aggregate flows use explicit saga (§6.3).
 > - **`version` is invisible to domain code** in the common path. Reads use `get`; writes use `update/3`. `schema_version` (P9) is a *document field* — distinct from the CAS `version` metadata token.
 > - **Reads are not serializable** w.r.t. concurrent writes except through `update/3`. The callbacks `get`, `find`, `find_by`, `fold`, and `count` may return stale data (P7); read-modify-write always goes through `update/3`.
 > - **Indexes are backend-maintained**, declared at `ensure_collection`. The declarative `#{set, inc}` mutation form is deliberately absent from the contract; it may return later as a semantically-equivalent optimization but is deferred.
@@ -126,7 +126,7 @@ The driver ships `{<comp>_db_mongo, load}` (load-not-start) so Mnesia-only deplo
 Selection: `{<comp>_db, backend, <module>}` + `{<comp>_db, backend_opts, #{…}}`.
 
 > [!NOTE]
-> The generic map envelope forfeits compile-time/Dialyzer typing on stored document shapes. This is a deliberate trade-off; per-aggregate accessor modules (§4.3) restore static reasoning at the aggregate boundary without requiring Mnesia-typed records.
+> The generic map envelope forfeits compile-time/Dialyzer typing on stored document shapes. This is a deliberate trade-off; per-aggregate accessor modules (§4.4) restore static reasoning at the aggregate boundary without requiring Mnesia-typed records.
 
 ## 4. Data model & aggregate discipline
 
@@ -202,7 +202,7 @@ The `syn` cluster lock is for entities with **cluster-wide identity** (subscribe
 
 ### 6.1 Error taxonomy
 
-Every backend normalizes its native errors to this set before returning to callers:
+Every backend **shall** normalize its native errors to this set before returning to callers:
 
 | Return value | Meaning |
 | --- | --- |
@@ -225,7 +225,7 @@ Backends shall never swallow infrastructure errors. The DB layer surfaces them t
 
 ### 6.3 Cross-aggregate flows: the CDR outbox pattern
 
-> [!NOTE]
+> [!IMPORTANT]
 > **The CDR outbox is the one sanctioned saga and the general template for any future cross-aggregate need.** Never reach for multi-key transactions — use this pattern instead.
 >
 > 1. **Stamp intent atomically:** the balance `update/3` that charges also appends a `pending_cdr` marker into the balance document (same single-doc CAS).
