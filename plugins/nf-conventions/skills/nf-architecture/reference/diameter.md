@@ -26,14 +26,14 @@ Register `diameter_gen_base_rfc6733` as the **common application (Application Id
                {module, <comp>_diameter_<iface>}]},
 ```
 
-The common application is what the stack uses for base-protocol messages (CER/CEA, DWR/DWA, DPR/DPA) and for **answers the stack originates itself**. Combined with `{request_errors, answer}` (§2), this is the lever that lets the stack emit **5xxx**.
+The common application is what the stack uses for base-protocol messages (CER/CEA, DWR/DWA, DPR/DPA) and for **protocol-error answers the stack sends itself**. Whether the stack sends a **5xxx** answer *directly* — instead of handing it to your callback — depends on this dictionary together with `{request_errors, answer}` (§2).
 
-**Why RFC 6733 specifically.** Per the OTP `diameter` docs, with `{request_errors, answer}` *"even 5xxx errors are answered without a callback unless the connection ... has configured the RFC 3588 common dictionary"* — and *"`answer` has the same semantics as `answer_3xxx` when the transport ... has been configured with `diameter_gen_base_rfc3588` as its common dictionary"*, because *"RFC 3588 allows only 3xxx result codes in an answer-message."* So with the RFC 3588 default common dictionary, malformed requests are silently only ever answered with 3xxx; the RFC 6733 common dictionary is required for the stack to answer with 5xxx.
+**Why RFC 6733 specifically.** Per the OTP `diameter` docs, with `{request_errors, answer}` *"even 5xxx errors are answered without a callback unless the connection ... has configured the RFC 3588 common dictionary"* — and *"`answer` has the same semantics as `answer_3xxx` when the transport ... has been configured with `diameter_gen_base_rfc3588` as its common dictionary"*, because *"RFC 3588 allows only 3xxx result codes in an answer-message."* So with an RFC 3588 common dictionary the stack will not send 5xxx **directly**; it **delegates them to the application callback** (§2). The 5xxx is **not lost** — the stack still detects the error and assigns the result code — it just falls to your `handle_request/3` to answer. **RFC 6733 is the OTP-29 default common dictionary**, so the stack already answers 5xxx directly out of the box; registering it explicitly as `common` is intent-making and defensive (it guards against a transport ever being configured with RFC 3588), not the thing that "switches on" 5xxx.
 
-**The stack originates these errors — your callbacks do not.** When a request fails to decode, the **diameter application itself** builds and sends the 3xxx/5xxx protocol-error answer using the common-application dictionary. Per-application callback modules (Ro/Rf, S6a, Gx, …) neither construct nor handle these — they only ever see cleanly-decoded requests (§2).
+**The stack detects these errors; who *sends* the answer varies.** When a request fails to decode, the **diameter application itself** determines the 3xxx/5xxx protocol error. With RFC 6733 common + `{request_errors, answer}` the stack also **builds and sends** that answer using the common-application dictionary, and per-application callbacks (Ro/Rf, S6a, Gx, …) only ever see cleanly-decoded requests. In any other combination the stack hands a 5xxx to the callback to answer (§2). Prefer the stack-direct path unless an interface specifically needs to shape its own 5xxx answer.
 
 > [!NOTE]
-> This corrects an earlier version of this guide, which claimed the application returns a 5xxx answer that the stack rejects as `invalid_return`. That is not the mechanism: the **stack** generates the 5xxx, driven by the common application + `{request_errors, answer}`. The Ro/Rf (and other) callbacks do not produce protocol-error answers.
+> This corrects an earlier version of this guide, which claimed the application returns a 5xxx answer that the stack rejects as `invalid_return`. That is not the mechanism, and 5xxx are never dropped: the stack **detects** the error and assigns the result code in every case. The common dictionary + `{request_errors, answer}` only decide whether the stack **sends the 5xxx directly** (RFC 6733 common + `answer`) or **hands it to the callback** to answer (every other combination — see §2).
 
 **Client behavior is unaffected.** The common application governs base-protocol messages and the encoding of stack-originated answers to **inbound** requests. It does not change how this node behaves as a **client** issuing requests (e.g. CCR on Ro/Rf/Gx). Choosing the RFC 6733 common dictionary is a server-side error-answering concern, not a client one.
 
@@ -55,13 +55,13 @@ The common application is what the stack uses for base-protocol messages (CER/CE
                {request_errors, answer}]}
 ```
 
-**Why.** `request_errors` chooses who answers a request that fails to decode. There are three values:
+**Why.** `request_errors` chooses *who sends the answer* for a request that fails to decode — the stack detects the error and assigns its result code either way. There are three values:
 
-- `callback` — the half-decoded request is handed to your `handle_request/3`; you reimplement protocol error handling yourself. Avoid.
-- `answer_3xxx` (the OTP default) — the **stack** answers automatically, but only with **3xxx** codes.
-- `answer` — the **stack** answers automatically and may also use **5xxx** codes (e.g. 5001 `DIAMETER_AVP_UNSUPPORTED`).
+- `callback` — every decode-error request is handed to your `handle_request/3`; you build all protocol-error answers yourself. Avoid.
+- `answer_3xxx` (the OTP default) — the **stack** sends **3xxx** answers directly, with no callback; **5xxx-class errors are still passed to your callback** (the stack does not auto-send them).
+- `answer` — the **stack** additionally sends **5xxx** answers directly (e.g. 5001 `DIAMETER_AVP_UNSUPPORTED`) — **but only when the common dictionary is RFC 6733**. With an RFC 3588 common dictionary `answer` behaves exactly like `answer_3xxx`, and 5xxx fall back to the callback.
 
-Set `answer` so the stack emits the correct permanent-failure codes for malformed requests without a callback, and your callbacks only ever see cleanly-decoded requests. **It works together with §1b:** `answer` only yields 5xxx when the common dictionary is RFC 6733 — with the RFC 3588 default it silently degrades to `answer_3xxx`. So §1b and §2 are jointly required to get stack-generated 5xxx.
+So the stack sends 5xxx **directly** in exactly one configuration: **RFC 6733 common (§1b) + `{request_errors, answer}`**. In every other combination the 5xxx is **delegated to your callback — it is not lost**. Set `answer` (with the RFC 6733 common dictionary, which is the OTP-29 default) so malformed requests are answered by the stack and your callbacks only ever see cleanly-decoded requests. Prefer this stack-direct path unless a specific interface needs to construct its own 5xxx answer.
 
 | Repo | `{request_errors, answer}` | Action |
 | --- | --- | --- |
@@ -69,6 +69,9 @@ Set `answer` so the stack emits the correct permanent-failure codes for malforme
 | `smf` | ❌ uses `{answer_errors, callback}` instead | add `{request_errors, answer}` to each app (Gx/Ro/Rf/NASREQ) |
 | `pcf` | ❌ not set | add it to the Gx app |
 | `chf` | ❌ not set | add it to the Gy/Ro and Rf apps |
+
+> [!NOTE]
+> **Grounded (chf, OTP 29).** With `request_errors` left unset — i.e. the `answer_3xxx` default — the stack still **detected** a 5xxx (5001 for an unknown mandatory AVP) but **handed it to the callback**, which returned it as the answer, so the client did receive a 5xxx. This is why a 5xxx was observed without registering `common` or setting `answer`: the answer came from the callback, not the stack. Setting `{request_errors, answer}` (with the RFC 6733 common dictionary) moves that answer onto the stack and keeps the callback handling only clean requests — which is why the convention recommends `answer` even though 5xxx are not "broken" without it.
 
 > [!NOTE]
 > `answer_errors` and `request_errors` are different knobs. `request_errors` governs **inbound request** decode failures (what this rule is about). `answer_errors` governs how *your client* reacts to a malformed **answer** it receives — independent of the 5xxx server-side concern above.
@@ -90,13 +93,11 @@ Set `answer` so the stack emits the correct permanent-failure codes for malforme
 `chf`'s violations to remove (use the generated dictionary instead):
 - `apps/chf_diameter/src/chf_diameter_avp.erl`: `-define(END_USER_E164, 0)`, `-define(END_USER_IMSI, 1)`.
 - `apps/chf_diameter/src/chf_diameter_rf.erl`: `-define(ART_EVENT,1)`/`ART_START`/`ART_INTERIM`/`ART_STOP`.
-- `apps/chf_diameter/src/chf_diameter_gy.erl`: `-define(DIAMETER_SUCCESS, 2001)` and similar — these duplicate `enum/2` data and macros already in the generated `diameter_3gpp_ts32_299_*` and base modules.
+- `apps/chf_diameter/src/chf_diameter_gy.erl`: `-define(DIAMETER_SUCCESS, 2001)` and similar — these duplicate the `-define` macros already in the generated `diameter_3gpp_ts32_299_*` and base `.hrl` files. (Enum/result-code values stay **integers**; use the generated macros, see §4.)
 
 ## 4. Define ENUMs properly in the `.dia` files
 
-**Rule:** integer-valued AVPs that have a defined enumeration **shall** be declared as enums in the `.dia`, with `@enum` sections — not as bare `Unsigned32` with magic integers in the code.
-
-This is the one place the reference repo falls short: `udr`'s `diameter_3gpp_s6a.dia` has **no `@enum` section** — AVPs like `Subscriber-Status`, `PDN-Type`, `Cancellation-Type`, `RAT-Type` are `Unsigned32`, and the code uses integer literals with comments (`'Cancellation-Type' => 2  %% SUBSCRIPTION_WITHDRAWAL`). Improve this: add the enum definitions so the symbolic names come from the dictionary (`enum/2`) and §3 can be honored everywhere.
+**Rule:** an AVP that has a defined enumeration **shall** be declared with type `Enumerated` and an `@enum` section in the `.dia` — not as a bare `Unsigned32`/`Integer32` with magic integers scattered through the code.
 
 Sketch of the `.dia` form:
 
@@ -113,6 +114,26 @@ Sketch of the `.dia` form:
 ```
 
 (Use the exact codes/names from the relevant 3GPP TS.)
+
+### What `@enum` actually produces (important — values stay integers)
+
+`@enum` does **not** create an atom-valued type or an `enum/2` lookup for application code. The mechanism is the same `.hrl` macro mechanism as §3:
+
+- For each `@enum` value the compiler emits a **`-define` macro** into the generated dictionary `.hrl`, mapping the symbolic name to its integer — e.g. `-define('S6A_RAT-TYPE_EUTRAN', 1004).`, `-define('S6A_CANCELLATION-TYPE_SUBSCRIPTION_WITHDRAWAL', 2).`
+- `Enumerated` is **`Integer32` at runtime and on the wire.** With `{decode_format, map}`, decode yields the **integer** (e.g. `1004`); encode **expects the integer**. Passing the symbolic atom to the encoder fails with a `diameter_gen,encode_avps` error.
+- Decode does **not** validate against the enum set — any `Integer32` decodes. `@enum` is a source of named constants, **not** a closed whitelist. (A peer sending an un-enumerated value still decodes; it is not rejected.)
+
+So the value of `@enum` is purely that code references the 3GPP value **by macro name instead of a magic integer** — the runtime and wire representation are unchanged. Consume it exactly like §3's result-code macros:
+
+```erlang
+-include_lib("diameter_3gpp_s6a.hrl").
+...
+Msg = #{'Cancellation-Type' => ?'S6A_CANCELLATION-TYPE_SUBSCRIPTION_WITHDRAWAL'}.  %% integer 2 at runtime
+```
+
+### Worked reference
+
+`udr` is the worked example: `apps/udr_diameter/dia/diameter_3gpp_s6a.dia` now carries the `@enum` sections (`Subscriber-Status`, `PDN-Type`, `Cancellation-Type`, `RAT-Type`, …), the generated `include/diameter_3gpp_s6a.hrl` holds the `-define` macros, and `udr_diameter_codec.erl` references them by name (still integer 2/1004/… at runtime). A real Open5GS ULR wire capture decodes `RAT-Type` to the integer `1004`, confirming `Enumerated` is integer-valued.
 
 ## 5. Reaching dictionary-only identifiers
 
@@ -158,10 +179,10 @@ erl -noshell \
 
 ## 7. Checklist for a Diameter interface
 
-- [ ] `.dia` inherits `diameter_gen_base_rfc6733`; service registers it as `common` (App-Id 0).
-- [ ] `{request_errors, answer}` set on every application.
+- [ ] `.dia` inherits `diameter_gen_base_rfc6733`; service registers it as `common` (App-Id 0) so the stack can send 5xxx **directly** (RFC 6733 is the OTP-29 default common dictionary, but register it explicitly — defensive against an RFC 3588 transport).
+- [ ] `{request_errors, answer}` set on every application, so stack-detected 5xxx are answered by the stack rather than delegated to the callback.
 - [ ] No hand-defined AVP/ENUM/result-code constants — all from the generated dictionary.
-- [ ] Enumerated AVPs defined with `@enum` in the `.dia`.
+- [ ] Enumerated AVPs declared `Enumerated` with `@enum` in the `.dia`, referenced via the generated `.hrl` macros (values stay integers at runtime/wire).
 - [ ] App-Id / Vendor-Id obtained via `<dict>:id()` / `<dict>:vendor_id()`, never literals.
 - [ ] Built with `diameter_make` (OTP-29 compatible), not `rebar3_diameter_compiler`.
 - [ ] `{decode_format, map}` (preferred) or generated records used in the callback.

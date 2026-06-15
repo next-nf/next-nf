@@ -85,6 +85,7 @@ Guards: **field access is the only native-record operation allowed in guards.** 
 - **Never define a native record in a `.hrl`.** The definition travels in the value; a shared header defeats the purpose and is explicitly discouraged. Define it in the module that owns it; `-export_record`/`-import_record` to share.
 - **Prefer native records for new hand-written records.** Migrate classic hand-written records opportunistically when touching a module.
 - **Do not convert generated Diameter dictionary records.** Those are emitted by `diameter_make` as classic records and are regenerated each build — leave them alone. (The large `-record(` counts in `*_diameter` apps — 826 in `chf`, 128 in `pcf`, ~1700 in `smf_aaa` — are all generated and are *not* migration surface.)
+- **Native records cannot back Mnesia tables — keep Mnesia row records classic.** Verified on OTP 29 (ERTS 17.0.1): a `mnesia:dirty_write/1` of a native record fails with `{aborted, {bad_type, ...}}`, because a native record is a distinct datatype, not the plain tuple that Mnesia's storage, matching, and `record_info` machinery require. This is org-wide, not component-specific: any record used as a Mnesia table row **shall** stay a **classic** record (defined in a shared `.hrl` as usual — the "no `.hrl`" rule above is native-record-specific and does not apply). It affects every Mnesia-backed NF — e.g. `chf` (`#subscriber{}` / `#balance{}` / `#cdr{}` / `#charging_session{}` in `chf_db`) and `pcf`, both of which keep Mnesia as the default backend ([`conventions.md`](conventions.md) §6).
 - Keep types: annotate fields with `:: type()` as above.
 
 ### 2.5 Tooling caveat
@@ -100,5 +101,5 @@ Generated diameter records excluded — these are the real hand-written counts:
 
 - `smf`: ~67 (concentrated in `smf_core`, incl. `smf.hrl`/`3gpp.hrl`) — the bulk of the work; many are in `.hrl` files that the native-record rule says to move into owning modules.
 - `pcf`: 2 (Cowboy handler `#state{}`).
-- `chf`: 2 (Cowboy handler `#state{}`).
+- `chf`: 6 — **2** module-local Cowboy handler `#state{}` (in the OAM API app), which migrate cleanly to native; plus **4** in `apps/chf_db/include/chf_db.hrl` (`#subscriber{}`, `#balance{}`, `#cdr{}`, `#charging_session{}`) that are **Mnesia table rows and must stay classic** — native records cannot back Mnesia tables (§2.4). Those four legitimately live in a shared `.hrl`: the "never define a record in a `.hrl`" rule is native-record-specific and does not apply to classic Mnesia records.
 - `udr`: 0 hand-written classic records; already uses a native record.
