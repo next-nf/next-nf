@@ -17,6 +17,7 @@ Set policies (authoritative — see the reference files for detail):
 - **OpenTelemetry over Prometheus** for all metrics; Grafana dashboards per component.
 - **Diameter** follows the RFC 6733 + `request_errors` + generated-dictionary discipline (`udr` is the reference).
 - **Common Test only** (no EUnit); **OTP `json` module** with binary keys (not atoms); single-pass data conversion.
+- **Unified data layer:** one `<comp>_db` document/CAS behaviour over Mnesia (ram/disc) + MongoDB; aggregate-per-document; `syn`+CAS. (`udr` reference.)
 
 ## The components
 
@@ -38,6 +39,7 @@ Read the file that matches what you are doing — do not load all of them at onc
 | The **in-depth Diameter guide** (RFC 6733 base, `request_errors`, ENUMs, generated dictionaries) | [`reference/diameter.md`](reference/diameter.md) |
 | The **observability policy** (OpenTelemetry, no Prometheus, OTEL semantic naming, Grafana) | [`reference/observability.md`](reference/observability.md) |
 | **JSON & data handling** (OTP `json` module, binary keys not atoms, single-pass conversion) | [`reference/data-handling.md`](reference/data-handling.md) |
+| The **unified data layer** (`<comp>_db` document/CAS contract, Mnesia+Mongo backends, aggregate discipline, migration) | [`reference/database.md`](reference/database.md) |
 | Which NF speaks which 3GPP interface, and how they interconnect | [`reference/interfaces-map.md`](reference/interfaces-map.md) |
 | Build/release commands, lint policy, clustering, ports, licensing | [`reference/conventions.md`](reference/conventions.md) |
 | Why the core runs on bare metal rather than Kubernetes | [`reference/deployment-philosophy.md`](reference/deployment-philosophy.md) |

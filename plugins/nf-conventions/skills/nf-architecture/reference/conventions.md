@@ -55,7 +55,7 @@ OpenTelemetry (not Prometheus); OTEL semantic naming; documented metrics; Grafan
 
 ## 6. Data layer
 
-Access persistent state only through the `<comp>_db` behaviour (see [`architecture.md`](architecture.md) §3). Default backend keeps a fresh checkout runnable (Mnesia in `pcf`/`chf`); external backends (MongoDB in `udr`) are opt-in by configuration.
+Access persistent state only through the `<comp>_db` behaviour (see [`architecture.md`](architecture.md) §3). Default backend keeps a fresh checkout runnable (Mnesia in `pcf`/`chf`); external backends (MongoDB in `udr`) are opt-in by configuration. See [`database.md`](database.md) for the unified document/CAS contract, backends, aggregate discipline, and the per-NF migration.
 
 ## 7. Clustering
 
