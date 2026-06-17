@@ -37,12 +37,9 @@ The common application is what the stack uses for base-protocol messages (CER/CE
 
 **Client behavior is unaffected.** The common application governs base-protocol messages and the encoding of stack-originated answers to **inbound** requests. It does not change how this node behaves as a **client** issuing requests (e.g. CCR on Ro/Rf/Gx). Choosing the RFC 6733 common dictionary is a server-side error-answering concern, not a client one.
 
-| Repo | `@inherits` (compile) | RFC 6733 as `common` App-Id 0 (runtime) |
-| --- | --- | --- |
-| `udr` | ✅ | ✅ (reference — `apps/udr_diameter/src/udr_diameter_srv.erl`) |
-| `smf` | ✅ | ⚠️ verify the service registers it as common |
-| `pcf` | ✅ (also `-include_lib` the rfc6733 `.hrl`) | ⚠️ verify |
-| `chf` | ✅ | ⚠️ verify |
+The `udr` reference: `apps/udr_diameter/src/udr_diameter_srv.erl`.
+
+> **Tracking:** per-repo state and migration work is tracked in [next-nf#10](https://github.com/next-nf/next-nf/issues/10) (epic + per-repo children).
 
 ## 2. Set `{request_errors, answer}`
 
@@ -63,13 +60,6 @@ The common application is what the stack uses for base-protocol messages (CER/CE
 
 So the stack sends 5xxx **directly** in exactly one configuration: **RFC 6733 common (§1b) + `{request_errors, answer}`**. In every other combination the 5xxx is **delegated to your callback — it is not lost**. Set `answer` (with the RFC 6733 common dictionary, which is the OTP-29 default) so malformed requests are answered by the stack and your callbacks only ever see cleanly-decoded requests. Prefer this stack-direct path unless a specific interface needs to construct its own 5xxx answer.
 
-| Repo | `{request_errors, answer}` | Action |
-| --- | --- | --- |
-| `udr` | ✅ set on the `s6a` app | reference |
-| `smf` | ❌ uses `{answer_errors, callback}` instead | add `{request_errors, answer}` to each app (Gx/Ro/Rf/NASREQ) |
-| `pcf` | ❌ not set | add it to the Gx app |
-| `chf` | ❌ not set | add it to the Gy/Ro and Rf apps |
-
 > [!NOTE]
 > **Grounded (chf, OTP 29).** With `request_errors` left unset — i.e. the `answer_3xxx` default — the stack still **detected** a 5xxx (5001 for an unknown mandatory AVP) but **handed it to the callback**, which returned it as the answer, so the client did receive a 5xxx. This is why a 5xxx was observed without registering `common` or setting `answer`: the answer came from the callback, not the stack. Setting `{request_errors, answer}` (with the RFC 6733 common dictionary) moves that answer onto the stack and keeps the callback handling only clean requests — which is why the convention recommends `answer` even though 5xxx are not "broken" without it.
 
@@ -83,17 +73,9 @@ So the stack sends 5xxx **directly** in exactly one configuration: **RFC 6733 co
 - Use map-format messages (`{decode_format, map}`, as `udr` does) or the generated records; reference AVPs by their generated names (`'User-Name'`, `'Visited-PLMN-Id'`, …).
 - For result codes and ENUMs, use the generated macros from the dictionary `.hrl` (e.g. `?'DIAMETER_BASE_RESULT-CODE_SUCCESS'`), not a local `-define(DIAMETER_SUCCESS, 2001)`.
 
-| Repo | State | Action |
-| --- | --- | --- |
-| `udr` | ✅ map format; no hand-redefinitions | reference |
-| `smf` | ✅ no hand AVP redefs; gets App-Ids via `?DICT:id()` | fine |
-| `pcf` | ✅ uses generated records via `-include_lib` | fine |
-| `chf` | ❌ **hand-redefines ENUMs/result codes** | fix |
+The `udr` reference: map format, no hand-redefinitions (`apps/udr_diameter/`).
 
-`chf`'s violations to remove (use the generated dictionary instead):
-- `apps/chf_diameter/src/chf_diameter_avp.erl`: `-define(END_USER_E164, 0)`, `-define(END_USER_IMSI, 1)`.
-- `apps/chf_diameter/src/chf_diameter_rf.erl`: `-define(ART_EVENT,1)`/`ART_START`/`ART_INTERIM`/`ART_STOP`.
-- `apps/chf_diameter/src/chf_diameter_gy.erl`: `-define(DIAMETER_SUCCESS, 2001)` and similar — these duplicate the `-define` macros already in the generated `diameter_3gpp_ts32_299_*` and base `.hrl` files. (Enum/result-code values stay **integers**; use the generated macros, see §4.)
+> **Tracking:** per-repo state and migration work is tracked in [next-nf#10](https://github.com/next-nf/next-nf/issues/10) (epic + per-repo children).
 
 ## 4. Define ENUMs properly in the `.dia` files
 
@@ -169,10 +151,7 @@ erl -noshell \
 
 (generated `.erl` to `src/`, the `.hrl` moved to `include/`).
 
-| Repo | Toolchain | Action |
-| --- | --- | --- |
-| `udr` | ✅ `diameter_make` via `gen_dict.sh` | reference |
-| `smf` / `pcf` / `chf` | ❌ `rebar3_diameter_compiler` | switch to `diameter_make` during the OTP-29 upgrade ([`erlang-otp.md`](erlang-otp.md) §1) |
+> **Tracking:** per-repo state and migration work is tracked in [next-nf#4](https://github.com/next-nf/next-nf/issues/4) (epic + per-repo children).
 
 > [!TIP]
 > Decide whether generated codec modules are checked into `src/` (as `smf`/`pcf`/`chf` do today) or regenerated each build (as `udr` does). The `udr` regenerate-on-build approach keeps generated artifacts out of git; prefer it for consistency.

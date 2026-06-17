@@ -21,8 +21,8 @@ Erlang was created at Ericsson to run telephone switches: soft real-time, massiv
 > [!NOTE]
 > "No K8s" is a stance about the **core data and signalling plane**, not a blanket ban. Build tooling, interop demos, and supporting images already use containers (`support-containers` builds with podman/buildah). The question for each NF is whether it sits on the latency-critical path.
 
-## TODO for the maintainer
+## Config, deployment, and operations standard
 
-- [ ] State per-component deployment guidance (bare metal vs container-tolerant) for `pcf`, `chf`, `udr`.
-- [ ] Document the supported bare-metal deployment procedure (or link the `smf` deployment runbook).
-- [ ] Note any DPDK/SR-IOV/CPU-pinning requirements once they are concrete.
+Config, deployment, and operations follow one org-wide standard. Per-component deployment guidance, runbooks, and configuration references are operator-facing documents authored with the `documenting-network-functions` skill (`nf-docs` plugin).
+
+> **Tracking:** per-repo state and migration work is tracked in [next-nf#21](https://github.com/next-nf/next-nf/issues/21) (epic + per-repo children).

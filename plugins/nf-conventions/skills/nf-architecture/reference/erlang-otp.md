@@ -4,14 +4,9 @@
 
 ## 1. OTP-29 is the target
 
-| Component | `minimum_otp_vsn` today | Action |
-| --- | --- | --- |
-| `udr` | **29** | On target — the reference. |
-| `pcf` | 28 | Upgrade to 29. |
-| `chf` | 28 | Upgrade to 29. |
-| `smf` | 26.2 | Upgrade to 29 (largest jump; it is the erGW fork). |
-
 Set `{minimum_otp_vsn, "29"}` in each repo's `rebar.config` and make CI build on OTP-29.
+
+> **Tracking:** per-repo state and migration work is tracked in [next-nf#4](https://github.com/next-nf/next-nf/issues/4) (epic + per-repo children).
 
 > [!WARNING]
 > **The OTP-29 upgrade is coupled to the Diameter build toolchain.** The third-party `rebar3_diameter_compiler` plugin **does not build on OTP-29**. `udr` already moved off it to OTP's own `diameter_make:codec/2` driven by a small `gen_dict.sh` pre-hook. `smf`, `pcf`, and `chf` still use `rebar3_diameter_compiler` and **must** switch to the `diameter_make` approach as part of the OTP-29 upgrade. See [`diameter.md`](diameter.md) §6.
@@ -95,11 +90,8 @@ Guards: **field access is the only native-record operation allowed in guards.** 
 > [!IMPORTANT]
 > Native records are **experimental** in OTP-29 (and possibly OTP-30); incompatible changes are possible. That is an accepted risk for this project, which targets OTP-29 deliberately. Keep usage idiomatic so a future syntax change is a mechanical fix.
 
-## 3. Hand-written record migration surface (for planning)
+## 3. Hand-written record migration surface
 
-Generated diameter records excluded — these are the real hand-written counts:
+Generated diameter records are excluded — they are emitted by `diameter_make` and regenerated each build (the large `-record(` counts in `*_diameter` apps are generated and are not migration surface). The rules in §2.4 govern which hand-written records may and should migrate to native.
 
-- `smf`: ~67 (concentrated in `smf_core`, incl. `smf.hrl`/`3gpp.hrl`) — the bulk of the work; many are in `.hrl` files that the native-record rule says to move into owning modules.
-- `pcf`: 2 (Cowboy handler `#state{}`).
-- `chf`: 6 — **2** module-local Cowboy handler `#state{}` (in the OAM API app), which migrate cleanly to native; plus **4** in `apps/chf_db/include/chf_db.hrl` (`#subscriber{}`, `#balance{}`, `#cdr{}`, `#charging_session{}`) that are **Mnesia table rows and must stay classic** — native records cannot back Mnesia tables (§2.4). Those four legitimately live in a shared `.hrl`: the "never define a record in a `.hrl`" rule is native-record-specific and does not apply to classic Mnesia records.
-- `udr`: 0 hand-written classic records; already uses a native record.
+> **Tracking:** per-repo state and migration work is tracked in [next-nf#5](https://github.com/next-nf/next-nf/issues/5) (epic + per-repo children).

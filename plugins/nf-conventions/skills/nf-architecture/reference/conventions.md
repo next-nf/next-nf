@@ -59,8 +59,7 @@ Access persistent state only through the `<comp>_db` behaviour (see [`architectu
 
 ## 7. Clustering
 
-Per-subscriber consistency across nodes via session locking — `udr` uses [`syn`](https://hex.pm/packages/syn) keyed per IMSI, in a dedicated `udr_cluster` app; `smf` has `smf_cluster`. `pcf`/`chf` have no cluster app yet.
-`TODO`: state the canonical clustering approach and whether `pcf`/`chf` need per-subscriber locking.
+Per-subscriber consistency across nodes via session locking — `udr` uses [`syn`](https://hex.pm/packages/syn) keyed per IMSI, in a dedicated `udr_cluster` app; `smf` has `smf_cluster`. The canonical clustering approach and per-subscriber locking for remaining NFs is tracked in [next-nf#6](https://github.com/next-nf/next-nf/issues/6).
 
 ## 8. Listener ports (convention — verify per repo)
 
@@ -78,13 +77,23 @@ Per-subscriber consistency across nodes via session locking — `udr` uses [`syn
 
 ## 9. Licensing
 
-Components are **AGPL-3.0** (`smf`, `udr`, `pcf`, `chf` ship a `LICENSE`). New code in those repos inherits it.
-`TODO`: confirm the license for shared assets in the profile/marketplace repo (it currently has no `LICENSE`).
+Components are **AGPL-3.0** (`smf`, `udr`, `pcf`, `chf` ship a `LICENSE`). New code in those repos inherits it. License for shared assets is tracked in [next-nf#16](https://github.com/next-nf/next-nf/issues/16).
 
 ## 10. CI
 
-`udr` has GitHub Actions (`ci`, `demo-s6a`, `demo-open5gs`) and builds against the OTP-29 target. `TODO`: confirm CI for `smf`/`pcf`/`chf` and whether a shared CI template should be factored out; all CI should target OTP-29.
+All CI targets OTP-29.
+
+> **Tracking:** per-repo state and migration work is tracked in [next-nf#12](https://github.com/next-nf/next-nf/issues/12) (epic + per-repo children).
 
 ## 11. Documentation
 
 Operator-facing docs follow the org standard — use the `documenting-network-functions` skill (`nf-docs` plugin). Author diagrams in Mermaid.
+
+## 12. Tracked items
+
+Work that was previously listed as open items is now tracked as GitHub issues:
+
+- App / module naming (`<comp>_sbi`/`_api`/`_web`, `pcf_http` name) → [next-nf#8](https://github.com/next-nf/next-nf/issues/8)
+- Clustering and per-subscriber locking → [next-nf#6](https://github.com/next-nf/next-nf/issues/6)
+- OSS hygiene and license for shared assets → [next-nf#16](https://github.com/next-nf/next-nf/issues/16)
+- Supervision-tree shape for `<comp>_core` → [next-nf#19](https://github.com/next-nf/next-nf/issues/19)

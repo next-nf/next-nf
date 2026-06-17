@@ -12,14 +12,11 @@
 5. **Document every metric** (§4).
 6. **Maintain a Grafana dashboard per component** (§5).
 
-## 2. Current state & migration
+## 2. Migration
 
-| Repo | Today | Migration |
-| --- | --- | --- |
-| `udr` | ✅ OTEL-native. `udr_otel` app: `otel_meter:create_counter('s6a.requests')`, `create_histogram('s6a.handler.duration')`; spans via `?with_span` (`s6a.AIR`/`ULR`/`PUR`); HTTP via `opentelemetry_cowboy_h`; OTLP exporter. No Prometheus, no `telemetry`. | None — **the reference.** |
-| `smf` | ❌ Prometheus, with **real custom metrics**: `smf_core/src/smf_prometheus.erl` + `smf_prometheus_collector.erl` (GTP-C/U, PFCP gauges), `smf_aaa` Diameter collectors, `/metrics` via `prometheus_cowboy2_handler`. | Largest conversion — port each metric to an OTEL instrument; replace the custom `prometheus_collector`s with OTEL observable instruments. Also: custom collectors are only registered in test suites today — wire them (as OTEL) into app startup. |
-| `pcf` | ❌ Prometheus deps + `/metrics` via `prometheus_cowboy_handler` on `pcf_web` (:8081), **but no custom metrics defined**. | Light — swap the exporter for OTEL + OTEL Prometheus exporter; add OTEL instruments for the policy path (Gx CCR/CCA, session counts). |
-| `chf` | ❌ Prometheus deps + `/metrics` on `chf_web` (:8081), **no custom metrics**; a separate JSON dashboard endpoint reads VM stats. | Light — same as pcf; add OTEL instruments for the charging path (Gy/Ro, Rf, balance ops). |
+`udr` is the reference implementation — already OTEL-native (`udr_otel` app: `otel_meter:create_counter('s6a.requests')`, `create_histogram('s6a.handler.duration')`; spans via `?with_span`; HTTP via `opentelemetry_cowboy_h`; OTLP exporter; no Prometheus, no `telemetry`).
+
+> **Tracking:** per-repo state and migration work is tracked in [next-nf#7](https://github.com/next-nf/next-nf/issues/7) (epic + per-repo children).
 
 ### Dependency set — use the next-nf forks
 
