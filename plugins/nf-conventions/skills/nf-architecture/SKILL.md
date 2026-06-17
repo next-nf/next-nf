@@ -18,6 +18,7 @@ Set policies (authoritative — see the reference files for detail):
 - **Diameter** follows the RFC 6733 + `request_errors` + generated-dictionary discipline (`udr` is the reference).
 - **Common Test only** (no EUnit); **OTP `json` module** with binary keys (not atoms); single-pass data conversion.
 - **Unified data layer:** one `<comp>_db` document/CAS behaviour over Mnesia (ram/disc) + MongoDB; aggregate-per-document; `syn`+CAS. (`udr` reference.)
+- **Unified config/deploy/ops standard:** release named `<comp>`, two-stage Alpine container, canonical ports (Diameter 3868 / SBI 8080 / API 8090 / Web 8081 / Admin 9464), StatefulSet + headless Service, `sys.config`+`vm.args` as runtime truth (no env-var override), JSON logging to stdout, CLI-first tooling. See [`reference/config-deploy-ops.md`](reference/config-deploy-ops.md).
 - **Per-repo conventions work is filed as GitHub issues.** This skill states the rule and links the tracking epic; per-repo state and migration actions live in the issues. See [`reference/issue-tracking.md`](reference/issue-tracking.md).
 
 ## The components
@@ -43,7 +44,7 @@ Read the file that matches what you are doing — do not load all of them at onc
 | The **unified data layer** (`<comp>_db` document/CAS contract, Mnesia+Mongo backends, aggregate discipline, migration) | [`reference/database.md`](reference/database.md) |
 | Which NF speaks which 3GPP interface, and how they interconnect | [`reference/interfaces-map.md`](reference/interfaces-map.md) |
 | Build/release commands, lint policy, clustering, ports, licensing | [`reference/conventions.md`](reference/conventions.md) |
-| Why the core runs on bare metal rather than Kubernetes | [`reference/deployment-philosophy.md`](reference/deployment-philosophy.md) |
+| Config/deployment/operations standard (canonical ports, k8s lifecycle, admin listener, JSON logging, CLI tooling) | [`reference/config-deploy-ops.md`](reference/config-deploy-ops.md) |
 | How to file, route, and label GitHub issues for conventions work | [`reference/issue-tracking.md`](reference/issue-tracking.md) |
 
 ## How this fits with the other skills
