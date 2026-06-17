@@ -68,7 +68,7 @@ The record's own default values are the single source of defaults; the fold visi
 
 ### Why it matters
 
-These conversions run **per request, at signalling rates**. An O(k·N) multi-pass transform or per-field lookup table is a direct latency and throughput cost — the opposite of the deterministic-latency goal behind the bare-metal stance ([`deployment-philosophy.md`](deployment-philosophy.md)). Single-pass conversion keeps the hot path flat.
+These conversions run **per request, at signalling rates**. An O(k·N) multi-pass transform or per-field lookup table is a direct latency and throughput cost — the opposite of the deterministic-latency goal behind the bare-metal stance ([`config-deploy-ops.md`](config-deploy-ops.md) §1). Single-pass conversion keeps the hot path flat.
 
 > [!TIP]
 > This composes with §1: because keys are binaries, the fold matches binary literals (`<<"a">>`). With OTP-29 **native records** ([`erlang-otp.md`](erlang-otp.md)), `#foo{}` default-init plus in-fold update works identically — keep the record definition as the one place defaults are declared.
