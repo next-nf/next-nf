@@ -8,7 +8,7 @@ description: Use when working on any next-nf component repo (smf, udr, pcf, chf)
 Shared knowledge for the **next-nf** open-source 3GPP core, built in Erlang/OTP. The org is growing a forked PGW (erGW) into a full SMF and surrounding it with the control-plane and charging functions a real core needs. The components are separate repos but share a deliberate set of patterns — this skill is the source of truth for those patterns so an agent working in any one repo applies them consistently.
 
 > [!IMPORTANT]
-> **These are target conventions, not a description of the status quo.** The repos do not all conform yet; each reference file states the rule, the current per-repo state, and the migration action. When you touch a repo, move it toward these conventions — do not copy an existing deviation.
+> **These are target conventions.** The reference files state the rule and link to the tracking epic; per-repo state and migration actions live in GitHub issues. When you touch a repo, move it toward the convention — do not copy an existing deviation.
 
 Set policies (authoritative — see the reference files for detail):
 
@@ -18,6 +18,7 @@ Set policies (authoritative — see the reference files for detail):
 - **Diameter** follows the RFC 6733 + `request_errors` + generated-dictionary discipline (`udr` is the reference).
 - **Common Test only** (no EUnit); **OTP `json` module** with binary keys (not atoms); single-pass data conversion.
 - **Unified data layer:** one `<comp>_db` document/CAS behaviour over Mnesia (ram/disc) + MongoDB; aggregate-per-document; `syn`+CAS. (`udr` reference.)
+- **Per-repo conventions work is filed as GitHub issues.** This skill states the rule and links the tracking epic; per-repo state and migration actions live in the issues. See [`reference/issue-tracking.md`](reference/issue-tracking.md).
 
 ## The components
 
@@ -43,6 +44,7 @@ Read the file that matches what you are doing — do not load all of them at onc
 | Which NF speaks which 3GPP interface, and how they interconnect | [`reference/interfaces-map.md`](reference/interfaces-map.md) |
 | Build/release commands, lint policy, clustering, ports, licensing | [`reference/conventions.md`](reference/conventions.md) |
 | Why the core runs on bare metal rather than Kubernetes | [`reference/deployment-philosophy.md`](reference/deployment-philosophy.md) |
+| How to file, route, and label GitHub issues for conventions work | [`reference/issue-tracking.md`](reference/issue-tracking.md) |
 
 ## How this fits with the other skills
 

@@ -27,14 +27,9 @@
 > [!NOTE]
 > A genuinely **closed, internal vocabulary** (e.g. a static config file whose `type`/`handler` values map to a fixed set of module atoms) is a different case from arbitrary SBI payload keys, and a bounded `binary_to_existing_atom` there is defensible. The rule is absolute for **externally-supplied JSON object keys**.
 
-### Current state & action
+The `udr` reference: OTP `json` decoder, binary keys throughout.
 
-| Repo | Decoder | Keys | Action |
-| --- | --- | --- | --- |
-| `udr` | ✅ OTP `json` | ✅ binary throughout | reference |
-| `pcf` | ✅ OTP `json` | ❌ `pcf_sbi_json`/`pcf_provision_json`/`pcf_http_json` seed atoms + `binary_to_existing_atom` | convert keys to binary |
-| `chf` | ✅ OTP `json` | ❌ `chf_provision_subscriber_h` uses `binary_to_existing_atom` | convert keys to binary |
-| `smf` | ❌ `jsx` (dep `jsx` 3.1.0) | ~ decodes with `{labels, binary}`; atoms only for internal **config** vocabulary | replace `jsx` with OTP `json`; keep SBI/provision payloads binary-keyed |
+> **Tracking:** per-repo state and migration work is tracked in [next-nf#9](https://github.com/next-nf/next-nf/issues/9) (epic + per-repo children).
 
 ## 2. Convert data structures in a single pass
 

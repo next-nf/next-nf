@@ -240,30 +240,15 @@ Backends shall never swallow infrastructure errors. The DB layer surfaces them t
 - Write/read concern is documented at the call site. Charging `cas_put` **shall** use Mongo `majority` write concern. Mnesia `disc_copies` is durable on commit.
 - **Readiness gate:** an NF **shall not** accept signaling traffic until `<comp>_db` reports ready — collections and indexes ensured; Mongo connected, or Mnesia `wait_for_tables` returned.
 
-## 7. Current state & migration
+## 7. Migration
 
-### 7.1 Per-NF status
+Migrate per-NF in the order **udr → pcf → chf → smf**. `udr` is the reference implementation (closest to the unified contract); complete its migration and conformance suite first. `pcf` follows (no charging safety-criticality); `chf` follows once the aggregate redesign is proven (safety-critical). `smf` is last — the largest migration and benchmark-gated.
 
-| NF | Today | Target shift | Effort |
-| --- | --- | --- | --- |
-| **`udr`** | Generic document store; 6-callback behaviour over ETS (dev) + Mongo (prod); optimistic CAS via `version`; `syn` per-IMSI lock; conformance suite. Closest to target. | Widen behaviour to the unified 11-callback contract (add `find_by`, `fold`, `take`, `count`, `create`, index declaration; functional `update/3` replacing `#{set,inc}`); swap ETS → `udr_db_mnesia`; add `schema_version` + accessor modules; `with_session` → `with_entity`. | Low — becomes the reference implementation. |
-| **`pcf`** | Domain-specific callbacks; Mnesia `disc_copies`; classic records; `mnesia:activity` transactions. Templated from CHF. | Records → documents (`subscriber`/`pcc_rule`/`policy_session`, promoted indexes `msisdn`/`charging_key`); entity callbacks → generic contract; `session_update_atomic` → `update/3`; add `pcf_db_mongo`, `pcf_cluster`. | Medium — clean reshape, no charging atomicity. |
-| **`chf`** | Same lineage as PCF: domain-specific 14-callback API; Mnesia `disc_copies`; classic records; `session_transaction` + write locks; no clustering; no migrations. | Records → documents **plus aggregate redesign** (reservations into balance doc; session descriptive; CDR outbox); balance ops + `session_transaction` → `update/3`; add `chf_db_mongo`, `chf_cluster`; fix ram-test/disc-prod gap. | High — safety-critical; the real CAS/outbox test. |
-| **`smf`** | erGW fork: 10-callback table-generic `smf_db` over ETS (node-local) + Mnesia `ram_copies` (cluster-global); classic records; multi-index runtime registries; mostly dirty ops; `smf_aaa` bypasses `smf_db` with raw ETS. | Registries → collections with declared indexes; records → documents via accessors on Mnesia-ram + dirty reads; route `smf_aaa`/`smf_core` raw-ETS through `smf_db`; drop erGW artifacts. Benchmark-gated. | Highest — most code, hot-path perf risk. |
+Do not begin a later NF until the earlier one's conformance suite passes on all backends.
 
 Cross-references: [`conventions.md`](conventions.md) §6 (data layer policy), [`architecture.md`](architecture.md) §3 (pluggable-DB pattern).
 
-### 7.2 Migration sequencing: UDR → PCF → CHF → SMF
-
-**1. UDR first.** Prove the full 11-callback contract, the conformance suite, and the accessor pattern on the repo that is already closest to target. UDR becomes the org reference implementation.
-
-**2. PCF second.** Validate the record → document reshape on a repo with no charging safety-criticality.
-
-**3. CHF third.** Apply the aggregate redesign and CDR outbox once the pattern is proven on PCF. This is the safety-critical step — test thoroughly before migrating charging in production.
-
-**4. SMF last.** The heaviest migration; hot-path performance must be benchmark-gated against raw-ETS before any registry moves to the API. This may be its own sub-effort.
-
-Each NF migration is its own spec → plan → implementation cycle under this umbrella design. Do not begin a later NF until the earlier one's conformance suite passes on all backends.
+> **Tracking:** per-repo state and migration work is tracked in [next-nf#6](https://github.com/next-nf/next-nf/issues/6) (epic + per-repo children).
 
 ## 8. Testing
 

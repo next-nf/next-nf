@@ -41,17 +41,9 @@ Rules that apply to all three:
 - The module prefix matches the app it lives in (`<comp>_sbi_*` inside `<comp>_sbi`, etc.).
 - An **outbound** SBI client (a component calling other NFs' SBIs) is a client, not a server surface — `<comp>_sbi_client` is the established name (`smf_sbi_client`) and is fine.
 
-### Current state & migration actions
+The `udr` reference: `udr_sbi` with `udr_sbi_am_h` / `_auth_h` / `_registration_h`.
 
-| Component | SBI | OAM/Provisioning | Web | Action |
-| --- | --- | --- | --- | --- |
-| `udr` | ✅ `udr_sbi` with `udr_sbi_am_h` / `_auth_h` / `_registration_h` — **the reference** | ⚠️ `udr_provision` (handlers `udr_provision_*_h`) | — (none) | Rename `udr_provision` → `udr_api`. |
-| `pcf` | ✅ `pcf_sbi` with `pcf_sbi_sm_policy_h` | ⚠️ `pcf_provision` | ✅ `pcf_web` | Rename `pcf_provision` → `pcf_api`. (`pcf_http` is a shared HTTP/JSON **library** app — outside this convention; acceptable, but consider a clearer `*_lib` name.) |
-| `chf` | ❌ **SBI is misnamed `chf_api`** (`chf_api_converged_h`, `chf_api_offline_h`) | ❌ OAM lives in `chf_provision` | ✅ `chf_web` | Rename `chf_api` → `chf_sbi` (and its modules → `chf_sbi_*`); rename `chf_provision` → `chf_api`. This is the largest rename. |
-| `smf` | ❌ SBI handler `sbi_nbsf_handler` sits in the top-level `smf` app | ❌ `http_api_handler` (version/status) in `smf` app | ❌ `swagger_ui_handler` in `smf` app | Split into `smf_sbi` (`smf_sbi_nbsf_h`), `smf_api` (`smf_api_*_h`), `smf_web`. Also rename `_handler` → `_h`. `smf_sbi_client` (outbound) stays. |
-
-> [!NOTE]
-> `chf`'s rename is a true swap: today `chf_api` = SBI and `chf_provision` = OAM; the convention wants `chf_sbi` = SBI and `chf_api` = OAM. Do it in one change and update all module names, `.app.src`, and the release boot order together.
+> **Tracking:** per-repo state and migration work is tracked in [next-nf#8](https://github.com/next-nf/next-nf/issues/8) (epic + per-repo children).
 
 ## 3. Pluggable database pattern
 
@@ -89,5 +81,6 @@ Evolve `smf` toward a full SMF on its own terms; align it to the naming conventi
 
 ## 6. Open items
 
-- [ ] Confirm the target name for `pcf_http` (shared HTTP/JSON library) — keep, or fold into a clearly-named lib.
-- [ ] Define the canonical supervision-tree shape for `<comp>_core`, if one is wanted.
+Tracked in GitHub issues:
+- `pcf_http` naming (shared HTTP/JSON library) → [next-nf#8](https://github.com/next-nf/next-nf/issues/8)
+- Canonical supervision-tree shape for `<comp>_core` → [next-nf#19](https://github.com/next-nf/next-nf/issues/19)
