@@ -27,12 +27,14 @@ the convention-only rewrite removes them.
 | E9 CI | ✅ | ● | ● | ✅ |
 | E12 minimum UI | ● | ●⁴ | ● | ● |
 | E13 OSS hygiene + tag | ● | ● | ●⁵ | ● |
+| E18 config/deploy/ops | ● | ● | ● | ●⁶ |
 
 ¹ chf: Mongo backend + `chf_cluster` already exist; remaining = CDR outbox + aggregate redesign (fold reservations into balance doc).
 ² udr: closest to target; remaining = widen 6→11-callback contract, ETS→Mnesia default, schema_version + accessors (this is the reference build-out).
 ³ pcf: RFC6733 inherited + good discipline; remaining = add `{request_errors, answer}` to the Gx app (small).
 ⁴ pcf: `pcf_web` already serves dashboard/health/sessions/subscribers; remaining = explicit `/health` + config display (minor).
 ⁵ smf: LICENSE is **GPLv2** (others are AGPL-3.0) — needs a legal review (spike), not normalization.
+⁶ udr: closest to the target ops surface (container demos, `manual/configuration`) — likely the reference once the standard is written.
 
 **Discarded as wrong:** the chf E5 "rename" the grounding agent proposed was backwards — chf already
 has `chf_sbi` (SBI) + `chf_api` (provisioning), which *is* the convention. No chf naming issue.
@@ -114,8 +116,21 @@ Status: chf/udr done.
 ### E14 — Release / versioning / compatibility `area:release` (next-nf conceptual)
 - **next-nf** epic: define semver-per-repo + inter-NF compatibility matrix; per-repo application follows once defined.
 
-### E-deploy — Deployment guidance `area:deploy` (next-nf conceptual)
-- **next-nf** epic: per-component deployment guidance (bare-metal vs container); document/link the bare-metal procedure; capture DPDK/SR-IOV/CPU-pinning needs when concrete (`type:spike`).
+### E18 — Unified config, deployment & operations `area:ops` (next-nf standard + per-repo conformance)
+All next-nf components should behave the same way for config, deployment, and operations. This epic
+defines one standard and conforms each NF to it. Absorbs the old deployment-guidance item. Cross-links
+E12 (the `/health` + `/config` UI surface) and E8 (operator runbooks via the `nf-docs` skill). Becomes a
+new convention reference in the Task 6 skill refactor (replacing/expanding `deployment-philosophy.md`).
+- **next-nf** `type:spike` → standard: **Config** — mechanism (`sys.config` + env overrides), key-naming
+  convention, precedence rules, validation, redaction; **Deployment** — relx release layout, container
+  image (ghcr), compose/k8s patterns, canonical ports + env vars; **Operations** — start/stop/upgrade,
+  health vs readiness endpoints, structured logging format, `/metrics` path, runbook structure;
+  bare-metal vs container guidance + DPDK/SR-IOV/CPU-pinning notes where concrete.
+- **chf / pcf / smf** `type:feature` (one each): conform config loading, deployment packaging, and ops
+  surface to the standard. Current divergence: smf is bare-metal-oriented (`CONFIG.md`/`RADIUS.md`);
+  chf/pcf have config docs but differing loaders/ports.
+- **udr** `type:feature` (reference): align to the standard (closest already — container demos +
+  `manual/configuration`); fill any gaps the standard surfaces.
 
 ---
 
@@ -129,5 +144,6 @@ Status: chf/udr done.
 
 ## Count
 
-~18 epic issues in `next-nf` + ~25 child issues across repos (smf carries ~12 of them). Far below the
-spec's ~50 estimate, because conventions work is largely done outside smf.
+~18 epic issues in `next-nf` + ~29 child issues across repos (smf carries ~13 of them; E18 adds one
+next-nf standard + four per-repo conformance children). Still well below the spec's ~50 estimate,
+because conventions work is largely done outside smf.
