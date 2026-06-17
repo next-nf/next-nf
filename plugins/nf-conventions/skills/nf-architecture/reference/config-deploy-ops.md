@@ -9,7 +9,7 @@ All next-nf network functions behave identically for configuration, deployment, 
 `sys.config` + `vm.args` are the **runtime source of truth**. No env-var override layer exists or is planned. This keeps the config model simple and maps cleanly onto a Kubernetes ConfigMap.
 
 > [!NOTE]
-> **Deployment target.** The k8s lifecycle contract is the primary operations target for the control-plane and charging NFs (smf, udr, pcf, chf). For the latency-critical user-plane core, **bare metal remains the preference**: deterministic latency and hardware-line-rate throughput are incompatible with the scheduling and networking abstractions of an orchestrator. Erlang/OTP's built-in supervision, fault isolation, and live-upgrade story provides the resilience an operator would otherwise reach to k8s for — without the orchestration tax. The k8s manifests and lifecycle contract in this file target the signalling/control/charging plane, not a DPDK/SR-IOV user plane.
+> **Deployment target.** The k8s lifecycle contract is the primary operations target for the control-plane and charging NFs (smf, udr, pcf, chf). For the latency-critical user-plane core, **bare metal remains the preference**: deterministic latency and hardware-line-rate throughput are incompatible with the scheduling and networking abstractions of an orchestrator. Erlang/OTP's built-in supervision, fault isolation, and live-upgrade story provides the resilience an operator would otherwise reach to k8s for — without the orchestration tax. The k8s manifests and lifecycle contract in this file target the signalling/control/charging plane, not a DPDK/SR-IOV user plane. The bare-metal case rests on three concrete arguments: **hardware affinity / the NUMA gap** (CPU pinning and NUMA-local memory the orchestrator can't guarantee), the **networking "death spiral"** (overlay/CNI hops adding latency and loss under load), and **troubleshooting opacity** (layers of abstraction hiding the failure). This is not a blanket ban — it scopes orchestration to where it pays off.
 
 ## 2. Config
 
@@ -65,7 +65,7 @@ Every NF exposes only the roles it has. The ports are fixed — do not deviate:
 The **admin listener** (port 9464) is a dedicated, **uninstrumented** cowboy instance. It serves `/metrics`, `/health`, and `/ready`. Traffic on this port is never self-traced — probe and scrape traffic does not generate OTEL spans.
 
 > [!NOTE]
-> `conventions.md` §8 listed an older port table that does not match this standard. This table supersedes it. The old table reflected `pcf`/`chf`'s current state (SBI on 8443, metrics on 8081); their conformance work moves them here.
+> This table is the single source of truth for ports ([`conventions.md`](conventions.md) §8 points here). `pcf`/`chf` today run SBI on 8443 and `/metrics` on the web port 8081; their conformance work (E18 children) moves them onto this scheme.
 
 ### Kubernetes manifest set
 
@@ -107,7 +107,7 @@ The k8s manifest template includes a **preStop hook** (`bin/<comp> drain`) that 
 
 ### Automatic rejoin after unplanned shutdown
 
-On restart, a node **automatically rejoins** the cluster and heals any partitions with no manual operator step. This standard mandates the *outcome*; the mechanism (syn membership, mnesia partition heal, cold-start ordering) is delivered by **E3 (clustering)** — see [next-nf#6](https://github.com/next-nf/next-nf/issues/6). reuse `chf`'s existing cold-start + partition-heal documentation as the reference.
+On restart, a node **automatically rejoins** the cluster and heals any partitions with no manual operator step. This standard mandates the *outcome*; the mechanism (syn membership, mnesia partition heal, cold-start ordering) is delivered by **E3 (clustering)** — see [next-nf#6](https://github.com/next-nf/next-nf/issues/6); reuse `chf`'s existing cold-start + partition-heal documentation as the reference.
 
 ### Rolling updates
 

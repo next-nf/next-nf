@@ -61,19 +61,9 @@ Access persistent state only through the `<comp>_db` behaviour (see [`architectu
 
 Per-subscriber consistency across nodes via session locking — `udr` uses [`syn`](https://hex.pm/packages/syn) keyed per IMSI, in a dedicated `udr_cluster` app; `smf` has `smf_cluster`. The canonical clustering approach and per-subscriber locking for remaining NFs is tracked in [next-nf#6](https://github.com/next-nf/next-nf/issues/6).
 
-## 8. Listener ports (convention — verify per repo)
+## 8. Listener ports
 
-`pcf` and `chf` share this scheme; treat it as the default and document the real values in each component's Configuration Reference:
-
-| Purpose | Port |
-| --- | --- |
-| Diameter | 3868 |
-| 5G SBI (HTTP/2) | 8443 |
-| OAM / provisioning REST | 8080 |
-| Web UI + metrics scrape | 8081 |
-
-> [!WARNING]
-> Not universal. `udr`'s provisioning API defaults to **8090** and its SBI to **8080**. `pcf`/`chf` currently mount `/metrics` on the web port (8081). Always state the real default in the component's docs; do not assume this table.
+The canonical port scheme (Diameter / SBI / provisioning API / web UI / a dedicated admin listener for metrics+health+ready) is defined in [`config-deploy-ops.md`](config-deploy-ops.md) §3. Document the real default in each component's Configuration Reference.
 
 ## 9. Licensing
 
