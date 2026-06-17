@@ -147,3 +147,13 @@ new convention reference in the Task 6 skill refactor (replacing/expanding `depl
 ~18 epic issues in `next-nf` + ~29 child issues across repos (smf carries ~13 of them; E18 adds one
 next-nf standard + four per-repo conformance children). Still well below the spec's ~50 estimate,
 because conventions work is largely done outside smf.
+
+---
+
+## Seeded (2026-06-17) — issue numbers
+
+**Epics (next-nf/next-nf):** E1 #4 · E2 #5 · E3 #6 · E4 #7 · E5 #8 · E6 #9 · E7 #10 · E8 #11 · E9 #12 · E10 #13 · E11 #14 · E12 #15 · E13 #16 · E14 #17 · E15 #18 · E16 #19 · E17 #20 · E18 #21.
+
+**Children:** E1→smf#1 · E2→smf#2 · E3→udr#26,pcf#1,chf#3,smf#3 · E4→chf#4,pcf#2,smf#4 · E5→smf#5 · E6→smf#6 · E7→pcf#3,smf#7 · E8→chf#5,pcf#4,smf#8 (udr=existing #25) · E9→pcf#5,smf#9 · E12→udr#27,smf#10,chf#6,pcf#6 · E13→chf#7,pcf#7,udr#28,smf#11(spike),smf#12 · E18→next-nf#22(standard),udr#29,chf#8,pcf#8,smf#13.
+
+Conceptual epics E10/E11/E14/E15/E16/E17 are childless (the epic is the next-nf task). Board add-step pending `project` scope.
