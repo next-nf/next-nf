@@ -1,6 +1,6 @@
-# Erlang/OTP: version target & native records
+# Erlang/OTP: version target, native records & idiomatic style
 
-> Grounded as of 2026-06-11. Set policy: **OTP-29 is the target**, and **native records are preferred** over classic records in hand-written code.
+> Grounded as of 2026-06-11. Set policy: **OTP-29 is the target**, **native records are preferred** over classic records in hand-written code, and §4 records the **idiomatic-style conventions** the org enforces in review.
 
 ## 1. OTP-29 is the target
 
@@ -95,3 +95,73 @@ Guards: **field access is the only native-record operation allowed in guards.** 
 Generated diameter records are excluded — they are emitted by `diameter_make` and regenerated each build (the large `-record(` counts in `*_diameter` apps are generated and are not migration surface). The rules in §2.4 govern which hand-written records may and should migrate to native.
 
 > **Tracking:** per-repo state and migration work is tracked in [next-nf#5](https://github.com/next-nf/next-nf/issues/5) (epic + per-repo children).
+
+## 4. Idiomatic code style (enforced in review)
+
+These are general Erlang idioms, not udr-specific. They came out of code review and
+apply to hand-written code in every NF. Keep them in mind when writing or changing code;
+reviewers will flag deviations.
+
+### 4.1 Match in the clause head, don't `case` on `maps:get`
+
+When a function (or `fun`) dispatches on the **shape of an argument** — especially a map —
+pattern-match in the head and provide a fallback clause, rather than fetching with a default
+and branching in the body. The required-key path binds with `:=`; the absent path is its own
+clause.
+
+```erlang
+%% prefer
+advance_sqn_fun(N) ->
+    fun(#{<<"sqn">> := Sqn} = Doc) -> {ok, Doc#{<<"sqn">> := Sqn + N}};
+       (Doc)                       -> {ok, Doc#{<<"sqn">> => N}}
+    end.
+
+%% avoid
+advance_sqn_fun(N) ->
+    fun(Doc) ->
+        Sqn = maps:get(<<"sqn">>, Doc, 0),
+        {ok, Doc#{<<"sqn">> => Sqn + N}}
+    end.
+```
+
+This does **not** mean replace every `case` — a `case` on the **result of a call**
+(`case udr_db:put(...) of {ok,_} -> ...; {error,_} -> ... end`) is correct and idiomatic,
+because you are dispatching on a return value, not on an argument's shape.
+
+### 4.2 Map-update operators: `:=` updates, `=>` inserts
+
+`Map#{K := V}` requires `K` to already be present and **crashes if it is absent** — a useful
+assertion. `Map#{K => V}` inserts-or-updates. Use `:=` when the key is known present (e.g. you
+just matched it in the head); use `=>` only when the key may be absent. Don't reach for `=>`
+everywhere out of habit — `:=` documents and enforces the invariant that the key exists.
+
+### 4.3 Build maps from defaults with `maps:merge`, not field-by-field overlay
+
+To normalise a document to its defaults while preserving fields you don't know about, prefer
+`maps:merge(Defaults, Doc)` (where `Doc` wins) over a hand-written overlay of
+`Doc#{k1 => maps:get(k1, Doc, d1), ...}`.
+
+```erlang
+from_doc(Doc0) ->
+    Doc = upgrade(Doc0),
+    Defaults = #{<<"schema_version">> => 1, <<"status">> => <<>>, <<"purged">> => false},
+    maps:merge(Defaults, Doc).      %% Doc wins; unknown fields pass through; absent ones default
+```
+
+**Caveat:** because `merge` lets `Doc` win, any field that must be **forced** to a canonical
+value (e.g. re-stamping `schema_version` on upgrade-on-read) has to be normalised on `Doc`
+*before* the merge — do it in the `upgrade/1` step, not by putting it in the defaults map (where
+a stale stored value would survive). See [`database.md`](database.md) §4.4.
+
+### 4.4 Propagate errors honestly; keep `-spec`s honest
+
+Don't collapse a fallible call with `{ok, V} = Call` when the callee can return `{error, _}`:
+that turns a real (infrastructure) error into a `badmatch` crash, and an upper layer often
+mis-reports the crash (a storage failure surfacing as an HTTP `400` instead of `500` is the
+concrete bug this rule came from). Match both cases and propagate `{error, Reason}`.
+
+Equally, **do not narrow a `-spec` to hide an error the function can actually return.** A spec
+of `{ok, version()}` on a function whose body can yield `{error, _}` makes dialyzer *stop*
+flagging callers that dropped the error branch — the narrowing hides the bug instead of
+surfacing it. Keep the spec as wide as the success typing (`{ok, version()} | {error, term()}`)
+so the dropped path is caught. The data-layer error taxonomy is [`database.md`](database.md) §6.1.

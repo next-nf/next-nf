@@ -1,6 +1,6 @@
 # Engineering conventions
 
-> Grounded as of 2026-06-11. General build/release/lint/clustering/ports/licensing conventions. The big topics have their own files: [`erlang-otp.md`](erlang-otp.md) (OTP-29 + native records), [`diameter.md`](diameter.md), [`observability.md`](observability.md), and the app-layout convention in [`architecture.md`](architecture.md).
+> Grounded as of 2026-06-11. General build/release/lint/clustering/ports/licensing conventions. The big topics have their own files: [`erlang-otp.md`](erlang-otp.md) (OTP-29 + native records + idiomatic Erlang style), [`diameter.md`](diameter.md), [`observability.md`](observability.md), and the app-layout convention in [`architecture.md`](architecture.md).
 
 ## 1. Build & release (confirmed)
 
@@ -41,9 +41,11 @@ Sanctioned overrides today (both go away with the migrations):
 
 Do not extend either exemption to hand-written application code.
 
-## 3. OTP version & records
+## 3. OTP version, records & idiomatic style
 
-OTP-29 is the target; prefer native records. **See [`erlang-otp.md`](erlang-otp.md).**
+OTP-29 is the target; prefer native records; follow the idiomatic-style conventions
+(clause-head matching, `:=`/`=>` map updates, `maps:merge` defaults, honest error specs)
+that review enforces. **See [`erlang-otp.md`](erlang-otp.md).**
 
 ## 4. Diameter
 

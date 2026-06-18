@@ -37,7 +37,7 @@ Read the file that matches what you are doing — do not load all of them at onc
 | You need… | Read |
 | --- | --- |
 | The OTP umbrella layout, sub-app roles, the **SBI/api/web naming convention**, pluggable-DB pattern, boot order | [`reference/architecture.md`](reference/architecture.md) |
-| **OTP-29 target + native records** (a new OTP-29 concept — read before writing records) and the Diameter build toolchain | [`reference/erlang-otp.md`](reference/erlang-otp.md) |
+| **OTP-29 target + native records** (a new OTP-29 concept — read before writing records), the Diameter build toolchain, and **idiomatic Erlang style** (clause-head matching, map-update operators, honest error specs) | [`reference/erlang-otp.md`](reference/erlang-otp.md) |
 | The **in-depth Diameter guide** (RFC 6733 base, `request_errors`, ENUMs, generated dictionaries) | [`reference/diameter.md`](reference/diameter.md) |
 | The **observability policy** (OpenTelemetry, no Prometheus, OTEL semantic naming, Grafana) | [`reference/observability.md`](reference/observability.md) |
 | **JSON & data handling** (OTP `json` module, binary keys not atoms, single-pass conversion) | [`reference/data-handling.md`](reference/data-handling.md) |
