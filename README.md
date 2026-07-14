@@ -34,6 +34,8 @@ Resurrect and grow a forked PGW into a **full, open-source 3GPP core network in 
 spanning the 4G/EPC and 5GC worlds — and surround it with the control-plane and charging
 functions a real core needs.
 
+🌐 **Project site:** <https://next-nf.github.io/>
+
 | Component | What it is | Role | Key interfaces |
 |---|---|---|---|
 | 🧠 **[smf](https://github.com/next-nf/smf)** | GGSN / PDN-GW (forked from erGW), evolving toward a full **SMF** | User-plane session anchor | GTP-C/U, PFCP, Gx, Gy, RADIUS/Diameter Gi/SGi |
