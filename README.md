@@ -34,7 +34,7 @@ Resurrect and grow a forked PGW into a **full, open-source 3GPP core network in 
 spanning the 4G/EPC and 5GC worlds — and surround it with the control-plane and charging
 functions a real core needs.
 
-🌐 **Project site:** <https://next-nf.github.io/>
+🌐 **Project site:** [next-nf — open-source 3GPP mobile core in Erlang/OTP](https://next-nf.github.io/)
 
 | Component | What it is | Role | Key interfaces |
 |---|---|---|---|
